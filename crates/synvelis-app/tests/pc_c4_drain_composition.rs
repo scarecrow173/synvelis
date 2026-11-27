@@ -564,6 +564,7 @@ fn fast_write(
         means: ParamWriteMeans::TimedEvent,
         position: MediaTime::new(frame, frame_base()),
         project_revision: revision,
+        transport_generation: None,
     }
 }
 

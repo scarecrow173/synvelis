@@ -825,6 +825,7 @@ fn exercise_control_pcm(
                 means: ParamWriteMeans::TimedEvent,
                 position: MediaTime::new(FAST_FRAME, frame_base()),
                 project_revision: write_revision,
+                transport_generation: None,
             },
         )
         .expect("attached control surface");

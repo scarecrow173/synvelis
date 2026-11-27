@@ -68,8 +68,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use ruviform_media_core::{
-    EngineFrame, MediaTime, MidiEvent, PlanGeneration, TimeBase, TransportCommand, TransportPlan,
-    TransportSpan, media_time_ticks,
+    EngineFrame, MediaTime, MidiEvent, PlanGeneration, TimeBase, TransportCommand,
+    TransportGeneration, TransportPlan, TransportSpan, media_time_ticks,
 };
 use ruviform_plugin_core::{Event, EventKind, ParamInfo, ParamWriteMeans, TimedParamEvent};
 use ruviform_plugin_host::{HostError, PluginHandle, ReportDrain};
@@ -115,6 +115,11 @@ pub struct FastControlWrite {
     pub position: MediaTime,
     /// Project revision the intent was authored against (evidence).
     pub project_revision: ProjectRevision,
+    /// Optional transport-generation binding for one-shot writes.
+    /// `None` preserves the ordinary absolute-event behavior; `Some`
+    /// binds the lowered event to the caller-named transport position
+    /// epoch through the upstream plan-builder contract.
+    pub transport_generation: Option<TransportGeneration>,
 }
 
 /// Why a fast-control write was refused instead of delivered or
@@ -556,6 +561,7 @@ struct NodeSurface {
 struct BatchEntry {
     binding: PluginParameterBinding,
     event: TimedParamEvent,
+    transport_generation: Option<TransportGeneration>,
     requeue: Option<FastControlWrite>,
 }
 
@@ -873,8 +879,8 @@ impl RoutingControlDispatch {
         let Some(node) = surface.nodes.get_mut(&processor) else {
             return self.block(FastControlBlock::UnboundTarget);
         };
-        let writes = [(entry.binding, entry.event)];
-        match node.session.dispatch(&mut node.dispatch, &writes) {
+        let writes = [(entry.binding, entry.event, entry.transport_generation)];
+        match Self::dispatch_batch(node, &writes) {
             Ok(_) => {
                 // `ParamDispatch::dispatch` stages `Play` (due 0)
                 // before the plan install — a successful dispatch
@@ -1620,8 +1626,27 @@ impl RoutingControlDispatch {
         if self.surface.is_none() {
             return report;
         }
-        self.sync_musical_transport(project);
         for (processor, events) in plans {
+            if events.is_empty()
+                && self
+                    .staged_midi(*processor)
+                    .is_some_and(<[(i64, MidiEvent)]>::is_empty)
+            {
+                report.cleared.push(*processor);
+                continue;
+            }
+            if !events.is_empty()
+                && self
+                    .staged_midi(*processor)
+                    .is_some_and(|staged| staged == events.as_slice())
+            {
+                // Content already current: reconciliation must not mint
+                // another plan generation or risk dropping unrelated
+                // events. The processor still counts as staged for the
+                // caller's delivery evidence.
+                report.staged.push(*processor);
+                continue;
+            }
             let result = if events.is_empty() {
                 self.clear_midi_plan(project, *processor).map(|_| ())
             } else {
@@ -1655,6 +1680,38 @@ impl RoutingControlDispatch {
             }
         }
         report
+    }
+
+    /// Whether the processor's last staged plan carries the surface's
+    /// currently desired complete musical source. Unlike comparing a
+    /// separately compiled tempo-map `Arc`, this checks the dispatcher's
+    /// retained project source identity — the production freshness gate.
+    /// `None` before attach or when the processor has no control node.
+    #[must_use]
+    pub fn last_plan_musical_is_current(&self, processor: ProcessorId) -> Option<bool> {
+        Some(
+            self.surface
+                .as_ref()?
+                .nodes
+                .get(&processor)?
+                .dispatch
+                .last_plan_musical_is_current(),
+        )
+    }
+
+    /// The exact last plan this surface staged for `processor`, if any.
+    /// Production evidence uses this read-only view to compare tempo
+    /// revision/map identity, project PPQN, event ordering, payload, and
+    /// optional transport-generation bindings before and after a refresh;
+    /// it is never a mutation or install seam.
+    #[must_use]
+    pub fn last_plan(&self, processor: ProcessorId) -> Option<&Arc<TransportPlan<EventKind>>> {
+        self.surface
+            .as_ref()?
+            .nodes
+            .get(&processor)?
+            .dispatch
+            .last_plan()
     }
 
     /// The processor node's currently staged clip MIDI content —
@@ -1998,6 +2055,7 @@ impl RoutingControlDispatch {
                             batches.entry(*processor).or_default().push(BatchEntry {
                                 binding,
                                 event,
+                                transport_generation: None,
                                 requeue: None,
                             });
                         } else {
@@ -2008,6 +2066,94 @@ impl RoutingControlDispatch {
                 }
             }
         }
+    }
+
+    /// Dispatches one validated batch, preserving the existing
+    /// [`PluginBindingSession::dispatch`] path byte-for-byte when every
+    /// write is unbound. A generation-bound write needs the richer
+    /// dispatcher input, so its batch is validated against the same
+    /// session pins here before minting the plan; validation remains
+    /// atomic and nothing is staged on the first mismatch.
+    fn dispatch_batch(
+        node: &mut NodeSurface,
+        writes: &[(
+            PluginParameterBinding,
+            TimedParamEvent,
+            Option<TransportGeneration>,
+        )],
+    ) -> Result<Arc<TransportPlan<EventKind>>, BindingError> {
+        if writes.iter().all(|(_, _, generation)| generation.is_none()) {
+            let unbound: Vec<(PluginParameterBinding, TimedParamEvent)> = writes
+                .iter()
+                .map(|(binding, event, _)| (binding.clone(), *event))
+                .collect();
+            return node.session.dispatch(&mut node.dispatch, &unbound);
+        }
+        if writes.is_empty() {
+            return Err(DispatchError::Empty.into());
+        }
+        if node.dispatch.node() != node.session.node() {
+            return Err(BindingError::NodeMismatch);
+        }
+        node.session
+            .clock_context()
+            .check_frame_base(node.dispatch.frame_base())
+            .map_err(BindingError::FrameBaseMismatch)?;
+        for (binding, event, _) in writes {
+            let recorded = node
+                .session
+                .binding(binding.synvelis_target)
+                .ok_or(BindingError::TargetNotBound)?;
+            if binding.instance_id != node.session.instance_id() {
+                return Err(BindingError::InstanceMismatch);
+            }
+            if binding.node != node.session.node() {
+                return Err(BindingError::NodeMismatch);
+            }
+            if binding.capability_generation != node.session.capability_generation() {
+                return Err(BindingError::CapabilityGeneration {
+                    expected: node.session.capability_generation(),
+                    actual: binding.capability_generation,
+                });
+            }
+            if binding.graph_generation != node.session.graph_generation() {
+                return Err(BindingError::GraphGeneration {
+                    expected: node.session.graph_generation(),
+                    actual: binding.graph_generation,
+                });
+            }
+            if binding.plugin != *node.session.plugin() {
+                return Err(BindingError::PluginMismatch {
+                    expected: node.session.plugin().clone(),
+                    actual: binding.plugin.clone(),
+                });
+            }
+            node.session
+                .clock_context()
+                .check_frame_base(binding.attach_clock_context.frame_base())
+                .map_err(BindingError::FrameBaseMismatch)?;
+            if binding != recorded {
+                return Err(BindingError::BindingDefunct);
+            }
+            if binding.plugin_param != event.event.param_id {
+                return Err(DispatchError::WriteRejected {
+                    means: "dispatch".into(),
+                    rejection: "param_mismatch".into(),
+                }
+                .into());
+            }
+        }
+        let batch: Vec<(
+            ParameterTargetId,
+            TimedParamEvent,
+            Option<TransportGeneration>,
+        )> = writes
+            .iter()
+            .map(|(binding, event, generation)| (binding.synvelis_target, *event, *generation))
+            .collect();
+        node.dispatch
+            .dispatch_with_transport_generations(&batch)
+            .map_err(BindingError::Dispatch)
     }
 
     /// Stages every node's merged batch through its pinned session —
@@ -2028,11 +2174,15 @@ impl RoutingControlDispatch {
             let Some(node) = surface.nodes.get_mut(&processor) else {
                 continue;
             };
-            let writes: Vec<(PluginParameterBinding, TimedParamEvent)> = entries
+            let writes: Vec<(
+                PluginParameterBinding,
+                TimedParamEvent,
+                Option<TransportGeneration>,
+            )> = entries
                 .iter()
-                .map(|e| (e.binding.clone(), e.event))
+                .map(|e| (e.binding.clone(), e.event, e.transport_generation))
                 .collect();
-            match node.session.dispatch(&mut node.dispatch, &writes) {
+            match Self::dispatch_batch(node, &writes) {
                 Ok(_) => {
                     // Same internal `Play` as `fast_control` — see
                     // `fast_control_inner`.
@@ -2083,6 +2233,7 @@ impl RoutingControlDispatch {
             BatchEntry {
                 binding,
                 event,
+                transport_generation: write.transport_generation,
                 requeue: Some(write.clone()),
             },
         ))

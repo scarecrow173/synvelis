@@ -12,13 +12,14 @@ use std::path::PathBuf;
 
 use common::tim03_l1::*;
 use ruviform_media_core::{InBlockTransportSupport, ScheduleBudget};
+use ruviform_plugin_core::EventKind;
 use ruviform_plugin_host::OutOfProcessSpec;
 use ruviform_ui::BackendReport;
 use serde_json::{Value, json};
 use synvelis_app::composition::compose_routing_engine_with_out_of_process_and_boundaries;
 use synvelis_app::engine::TransportApplicationCommand;
 use synvelis_app::{ProductOutOfProcessPlugin, SynvelisApp};
-use synvelis_player::{BoundaryDeclaration, TimingPrecision};
+use synvelis_player::{BoundaryDeclaration, TimingPrecision, compile_project_musical_transport};
 use synvelis_project::{BeatPoint, PpqnConversionPolicy, ProcessorId, ProjectOp};
 
 const PROJECT_PPQN: u32 = 480;
@@ -180,17 +181,20 @@ fn play_loop_clicks(
     click_positions(&run)
 }
 
-fn independent_click_frame(delta_ticks: i64) -> usize {
-    // At 93.75 BPM one host project tick is exactly 64 frames and one
-    // 256-frame block is exactly four host ticks, so the PPQN projection
-    // never accumulates fractional-tick rounding across a block. The
-    // adapter reprojects host PPQN 480 to fixture-visible PPQN 960 while
-    // preserving the same musical instant and frame delta.
-    let frame = delta_ticks * 64 + i64::try_from(LOOKAHEAD_BLOCKS * BLOCK_FRAMES).unwrap();
+fn independent_click_frame(delta_ticks: i64, bpm_milli: u32) -> usize {
+    // The adapter reprojects host PPQN 480 to fixture-visible PPQN 960
+    // while preserving the same musical instant. Compute the frame delta
+    // in that projected tick domain, then add the two-block L1 lookahead
+    // excluded by the freshness rule.
+    let projected_delta_ticks = delta_ticks * 2;
+    let numerator = projected_delta_ticks * 48_000 * 60_000;
+    let denominator = i64::from(bpm_milli) * i64::from(ADAPTER_PPQN);
+    let frame = (numerator + denominator - 1) / denominator
+        + i64::try_from(LOOKAHEAD_BLOCKS * BLOCK_FRAMES).unwrap();
     usize::try_from(frame).unwrap()
 }
 
-fn click_law_json(delta_ticks: i64, expected: usize) -> Value {
+fn click_law_json(delta_ticks: i64, bpm_milli: u32, expected: usize) -> Value {
     let projected_delta_ticks = delta_ticks * 2;
     let boundary = projected_delta_ticks;
     json!({
@@ -202,12 +206,173 @@ fn click_law_json(delta_ticks: i64, expected: usize) -> Value {
         "boundary_tick": boundary,
         "projected_delta_ticks": projected_delta_ticks,
         "numerator": projected_delta_ticks * 48_000 * 60_000,
-        "denominator": TEMPO_BPM_MILLI * ADAPTER_PPQN,
-        "bpm_milli": TEMPO_BPM_MILLI,
+        "denominator": bpm_milli * ADAPTER_PPQN,
+        "bpm_milli": bpm_milli,
         "lookahead_frames": LOOKAHEAD_BLOCKS * BLOCK_FRAMES,
         "expected_click_frame": expected,
         "fixed_960_fallback": false,
         "projection_note": "960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480",
+    })
+}
+
+fn measure_positive(
+    app: &SynvelisApp,
+    engine: &synvelis_app::SessionRoutingEngine,
+    processor: ProcessorId,
+    case: &str,
+    quarter: i64,
+    delta_ticks: i64,
+    bpm_milli: u32,
+) -> Value {
+    let expected = independent_click_frame(delta_ticks, bpm_milli);
+    let (observed, transport_report) =
+        play_seeked_click(app, engine, processor, quarter, delta_ticks);
+    assert_eq!(
+        observed,
+        vec![expected],
+        "{case}: expected one fresh click at {expected}, got {observed:?}"
+    );
+    json!({
+        "case": case,
+        "position_jump": true,
+        "host_position_ticks": quarter * i64::from(PROJECT_PPQN) - delta_ticks,
+        "independent_calculation": click_law_json(delta_ticks, bpm_milli, expected),
+        "observed_click_frames": observed,
+        "transport_call_start": transport_report.call_start.frame(),
+        "amplitude": CLICK,
+        "stereo_identical": true,
+        "non_click_frames_silent": true,
+        "verdict": "pass",
+    })
+}
+
+fn control_plan_evidence(
+    app: &SynvelisApp,
+    engine: &synvelis_app::SessionRoutingEngine,
+    processor: ProcessorId,
+) -> Value {
+    let project = app.workspace().session().project();
+    let source = compile_project_musical_transport(project).expect("valid test project source");
+    let surface = engine.control_report().expect("control surface evidence");
+    let facts = engine
+        .with_control_dispatch(|dispatch| {
+            let current = dispatch.last_plan_musical_is_current(processor);
+            dispatch.last_plan(processor).map(|plan| {
+                (
+                    plan.tempo_revision.get(),
+                    plan.musical_ppqn
+                        .map(ruviform_media_core::Ppqn::ticks_per_quarter),
+                    plan.events.len(),
+                    plan.events
+                        .iter()
+                        .filter(|event| matches!(event.payload, EventKind::Midi(_)))
+                        .count(),
+                    plan.events
+                        .iter()
+                        .filter(|event| matches!(event.payload, EventKind::ParamValue(_)))
+                        .count(),
+                    plan.events
+                        .iter()
+                        .filter(|event| event.transport_generation.is_some())
+                        .count(),
+                    current,
+                )
+            })
+        })
+        .flatten()
+        .expect("instrument control plan evidence");
+    let (
+        plan_tempo_revision,
+        plan_ppqn,
+        event_count,
+        midi_events,
+        param_events,
+        generation_bound_events,
+        current,
+    ) = facts;
+    assert_eq!(plan_tempo_revision, project.tempo_map.revision);
+    assert_eq!(plan_ppqn, Some(source.ppqn().ticks_per_quarter()));
+    assert_eq!(current, Some(true), "stale live plan treated as current");
+    assert!(surface.musical_refresh_errors.is_empty());
+    json!({
+        "surface": format!("{:?}", surface.musical_transport),
+        "refresh_errors": format!("{:?}", surface.musical_refresh_errors),
+        "project_tempo_revision": project.tempo_map.revision,
+        "plan_tempo_revision": plan_tempo_revision,
+        "project_ppqn": PROJECT_PPQN,
+        "plan_ppqn": plan_ppqn,
+        "plan_carries_current_project_source": current,
+        "event_counts": {
+            "total": event_count,
+            "staged_midi": midi_events,
+            "param_events": param_events,
+            "transport_generation_bound": generation_bound_events,
+        },
+    })
+}
+
+fn apply_tempo_edit(
+    app: &mut SynvelisApp,
+    tick: i64,
+    bpm_milli: u32,
+) -> synvelis_project::ProjectRevision {
+    let revision = app.workspace().session().revision();
+    app.workspace_mut()
+        .session_mut()
+        .apply(ProjectOp::AddTempoEvent { tick, bpm_milli }, revision)
+        .expect("committed tempo edit")
+}
+
+fn dynamic_edit_case(
+    app: &mut SynvelisApp,
+    engine: &synvelis_app::SessionRoutingEngine,
+    processor: ProcessorId,
+    case: &str,
+    edit_tick: i64,
+    edit_bpm: u32,
+    measure_quarter: i64,
+) -> Value {
+    let before_revision = app.workspace().session().project().tempo_map.revision;
+    let _ = engine.control_drain_observations();
+    let resulting_revision = apply_tempo_edit(app, edit_tick, edit_bpm);
+    let project = app.workspace().session().project();
+    assert_eq!(project.tempo_map.revision, before_revision + 1);
+    let control_evidence = control_plan_evidence(app, engine, processor);
+    // Separate the edit/install window from the measured transport
+    // window: the refresh must already be RT-applied before Seek+Play,
+    // and the two L1 lookahead blocks cannot contaminate the oracle.
+    run_paced(engine, LOOKAHEAD_BLOCKS);
+    let cycles = engine.control_drain_observations();
+    let rt_install_receipts: Vec<Value> = cycles
+        .iter()
+        .flat_map(|cycle| cycle.receipts.iter())
+        .map(|receipt| {
+            json!({
+                "command_id": format!("{:?}", receipt.id),
+                "status": format!("{:?}", receipt.status),
+                "requested_frame": receipt.requested_frame.frame(),
+                "applied_frame": receipt.applied_frame.map(ruviform_media_core::EngineFrame::frame),
+                "transport_generation": receipt.transport_generation.get(),
+                "plan_generation": receipt.plan_generation.get(),
+                "clock_epoch": receipt.clock_epoch.get(),
+                "degradation": receipt.degradation.map(|d| format!("{d:?}")),
+                "reason": receipt.reason.map(|r| format!("{r:?}")),
+            })
+        })
+        .collect();
+    let positive = measure_positive(app, engine, processor, case, measure_quarter, 2, edit_bpm);
+    json!({
+        "edit": {
+            "op": "ProjectOp::AddTempoEvent",
+            "tick": edit_tick,
+            "bpm_milli": edit_bpm,
+            "resulting_project_revision": resulting_revision.0,
+            "resulting_tempo_revision": project.tempo_map.revision,
+            "ppqn_unchanged": project.ppqn.0 == PROJECT_PPQN,
+        },
+        "control_evidence_before_measured_transport": control_evidence,
+        "rt_install_receipts_before_measured_transport": rt_install_receipts,
+        "positive": positive,
     })
 }
 
@@ -220,6 +385,9 @@ struct MusicalRun {
     stopped_pass: bool,
     paused_pass: bool,
     loop_observed: Vec<usize>,
+    dynamic_before_measured: Value,
+    dynamic_while_playing: Value,
+    final_tempo_revision: u64,
 }
 
 fn positive_cases(
@@ -230,7 +398,7 @@ fn positive_cases(
     let mut positives = Vec::new();
     for (index, delta_ticks) in [3_i64, 2, 1].into_iter().enumerate() {
         let quarter = 8 + i64::try_from(index).unwrap() * 2;
-        let expected = independent_click_frame(delta_ticks);
+        let expected = independent_click_frame(delta_ticks, TEMPO_BPM_MILLI);
         let (observed, transport_report) =
             play_seeked_click(app, engine, processor, quarter, delta_ticks);
         assert_eq!(
@@ -242,7 +410,7 @@ fn positive_cases(
             "case": format!("seek_jump_delta_{delta_ticks}_ticks"),
             "position_jump": true,
             "host_position_ticks": quarter * i64::from(PROJECT_PPQN) - delta_ticks,
-            "independent_calculation": click_law_json(delta_ticks, expected),
+            "independent_calculation": click_law_json(delta_ticks, TEMPO_BPM_MILLI, expected),
             "observed_click_frames": observed,
             "transport_call_start": transport_report.call_start.frame(),
             "amplitude": CLICK,
@@ -255,7 +423,7 @@ fn positive_cases(
 }
 
 fn execute_musical_run(
-    app: &SynvelisApp,
+    app: &mut SynvelisApp,
     engine: &synvelis_app::SessionRoutingEngine,
     processor: ProcessorId,
 ) -> MusicalRun {
@@ -294,6 +462,45 @@ fn execute_musical_run(
         vec![1024_usize, 1792],
         "loop-derived fresh click positions differ"
     );
+
+    // Re-anchor the transport cursor before the first dynamic edit so the
+    // edit tick is unambiguously in its future. Stop and flush the L1
+    // lookahead: the post-edit measured seek/play below is a fresh window,
+    // not residual output from the baseline loop measurement.
+    apply_transport(
+        app,
+        engine,
+        processor,
+        &[
+            TransportApplicationCommand::ClearLoop,
+            TransportApplicationCommand::Seek(beat_ticks(8 * i64::from(PROJECT_PPQN) - 3)),
+            TransportApplicationCommand::Stop,
+        ],
+    );
+    run_paced(engine, LOOKAHEAD_BLOCKS + 1);
+    let dynamic_before_measured = dynamic_edit_case(
+        app,
+        engine,
+        processor,
+        "post_edit_before_measured_transport_quarter16_delta2",
+        4_800,
+        75_000,
+        16,
+    );
+
+    // The first post-edit measurement leaves transport playing. Commit the
+    // second tempo edit in that state; production revision reconciliation
+    // must refresh the live plan before the next measured seek/play.
+    let dynamic_while_playing = dynamic_edit_case(
+        app,
+        engine,
+        processor,
+        "post_edit_while_playing_quarter24_delta2",
+        9_600,
+        100_000,
+        24,
+    );
+    let final_tempo_revision = app.workspace().session().project().tempo_map.revision;
     MusicalRun {
         generation,
         tempo_revision,
@@ -303,6 +510,9 @@ fn execute_musical_run(
         stopped_pass,
         paused_pass,
         loop_observed,
+        dynamic_before_measured,
+        dynamic_while_playing,
+        final_tempo_revision,
     }
 }
 
@@ -343,7 +553,7 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
             revision,
         )
         .unwrap();
-    let run = execute_musical_run(&app, &engine, processor);
+    let run = execute_musical_run(&mut app, &engine, processor);
 
     println!(
         "tim03-l1-production-musical-transport {}",
@@ -368,10 +578,13 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
             "project": {
                 "ppqn": PROJECT_PPQN,
                 "adapter_projection_ppqn": ADAPTER_PPQN,
-                "tempo_revision": run.tempo_revision,
+                "initial_tempo_revision": run.tempo_revision,
+                "final_tempo_revision": run.final_tempo_revision,
                 "tempo_events": [
                     {"tick": 0, "bpm_milli": 120_000},
                     {"tick": 1, "bpm_milli": TEMPO_BPM_MILLI},
+                    {"tick": 4_800, "bpm_milli": 75_000, "edit_case": "before_measured_transport"},
+                    {"tick": 9_600, "bpm_milli": 100_000, "edit_case": "while_playing"},
                 ],
                 "musical_transport_surface": run.musical_surface,
                 "musical_refresh_errors": run.musical_refresh_errors,
@@ -382,6 +595,10 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
                 "frames_per_block": BLOCK_FRAMES,
             },
             "positive_cases": run.positives,
+            "dynamic_cases": {
+                "valid_tempo_edit_before_measured_transport": run.dynamic_before_measured,
+                "valid_tempo_edit_while_playing": run.dynamic_while_playing,
+            },
             "negative_controls": {
                 "stopped": if run.stopped_pass { "pass" } else { "fail" },
                 "paused": if run.paused_pass { "pass" } else { "fail" },
@@ -396,7 +613,7 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
                 "full_dynamic_loop_matrix": "NotRun/follow-up",
             },
             "not_run": [
-                "dynamic tempo edit matrix and full frame/boundary matrix",
+                "full dynamic tempo edit matrix beyond the two representative cases, and full frame/boundary matrix",
                 "fault/state/crash isolation, GUI/EXT-L3, macOS/Linux runtime, 3OS CI, AudioLens cross-consumer",
             ],
         })
