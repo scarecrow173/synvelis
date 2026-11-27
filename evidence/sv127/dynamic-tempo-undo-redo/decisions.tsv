@@ -1,0 +1,4 @@
+ts	phase	decision	why	evidence	result
+2026-11-27T17:30:43Z	setup	Restore the generated UI tree to the existing lock pin	The copied vendor tree had a different revision	check-ruviform-rev-initial.log; check-ruviform-rev.log	Coordinator approved; backed up old tree outside worktree; recheck passed
+2026-11-27T17:37:55Z	tests	Use the existing player and app seams without changing production code	The project notification and source identity paths already support the requested sequence	d6368e0fbc97eb6284d6f198e8d954462ddf403f	Mixed plan and real ABI oracles added
+2026-11-27T17:41:37Z	evidence	Record a separate source DLL and sibling for the final ABI run	Default resolution on a warm target can return the staged sibling	dynamic-distinct-fixtures.log; test-player.log	Canonical runs passed; JSONL extracted from stdout

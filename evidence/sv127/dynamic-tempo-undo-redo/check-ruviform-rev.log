@@ -1,0 +1,2 @@
+[check-ruviform-rev] $ node tools/check-ruviform-rev.mjs
+check-ruviform-rev: resolved 511e1a7944c35797942ba065c092b9263067c48a (36 lockfile sources, lockfile-primary, REV match)

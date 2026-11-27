@@ -1,0 +1,746 @@
+[test] $ cargo test --locked -p synvelis-player
+   Compiling synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-player)
+mbx[progress]: 15s elapsed; 0 hits, 6 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 30s elapsed; 0 hits, 15 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 45s elapsed; 0 hits, 28 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 1m elapsed; 0 hits, 36 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 14s
+     Running unittests src\lib.rs (target\debug\deps\synvelis_player-1f3b78224c07efc3.exe)
+mbx[progress]: 1m 15s elapsed; 0 hits, 55 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+
+running 9 tests
+test process_boundary::loop_wrap_tests::apply_at_head_wins_tie_then_wraps ... ok
+test process_boundary::loop_wrap_tests::consecutive_windows_stay_scheduler_faithful ... ok
+test process_boundary::loop_wrap_tests::invalid_commands_never_move_the_sim ... ok
+test process_boundary::loop_wrap_tests::mid_window_seek_preempts_and_repositions ... ok
+test process_boundary::loop_wrap_tests::mid_window_set_loop_replaces_region ... ok
+test process_boundary::loop_wrap_tests::no_loop_or_not_playing_is_empty ... ok
+test process_boundary::loop_wrap_tests::same_frame_cascade_records_one_point ... ok
+test process_boundary::loop_wrap_tests::steady_loop_multiple_wraps ... ok
+test process_boundary::loop_wrap_tests::window_edges_include_last_frame_exclude_end ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples\tim04_l1_plugin_runner.rs (target\debug\deps\tim04_l1_plugin_runner-6c4a9b641d7e976c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ctl_02.rs (target\debug\deps\ctl_02-112febf0c43f7de0.exe)
+
+running 3 tests
+test channel_params_are_internal_and_never_reach_plugin_params ... ok
+test plugin_param_delivery_tracks_generation_axes ... ok
+test unbound_and_foreign_targets_never_deliver ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\l1_e2e.rs (target\debug\deps\l1_e2e-546c804c9b05d676.exe)
+
+running 10 tests
+test l1_01_import_verifies_and_materializes ... ok
+test l1_02_id_separation_shared_source_undo_save ... ok
+test l1_03_clip_end_past_source_eof ... DIAG stats=StatsSnapshot { written: 300, underrun: 0, faulted: 0, eof_blocks: 2, mismatch: 212, silenced: 0, fills: 4 }
+DIAG stats=StatsSnapshot { written: 300, underrun: 0, faulted: 0, eof_blocks: 2, mismatch: 212, silenced: 0, fills: 4 } pcm0=[-1.0, -0.9848633, -0.96972656, -0.95458984, -0.9394531, -0.9243164, -0.9091797, -0.89404297]
+ok
+test l1_03_headless_clip_playback_exact ... ok
+test l1_04_failure_classes_are_typed_and_atomic ... ok
+test l1_04_import_idempotency_and_orphan ... ok
+test l1_05_time_conversion_is_exact_and_documented ... ok
+test l1_06_capability_and_latency_evidence ... ok
+test l1_07_fixture_is_deterministic ... ok
+test l1_compat_prepare_failure_keeps_last_good ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests\md_b.rs (target\debug\deps\md_b-a2d0617616ef7dbc.exe)
+
+running 4 tests
+test md_b_01_comp_lowering_replaces_lane_clips ... ok
+test md_b_02_comp_playback_pcm_exact ... ok
+test md_b_03_inactive_comp_plays_raw_clips ... ok
+test md_b_04_comp_skips_are_explicit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests\monitor.rs (target\debug\deps\monitor-f03075e1dd33e8cd.exe)
+
+running 15 tests
+test empty_report_resolves_to_unknown ... ok
+test gain_ramp_crossfades_over_ramp_frames ... ok
+test input_missing_fails_closed_to_muted ... ok
+test low_latency_ready_and_degraded ... ok
+test low_latency_unavailable_reasons ... ok
+test measured_without_clock_epoch_downgrades_to_reported ... ok
+test mixed_clock_epochs_yield_no_single_epoch ... ok
+test muted_route_produces_silence ... ok
+test native_placement_is_bit_exact_without_ramp ... ok
+test overflow_fails_closed_to_unknown ... ok
+test playback_route_outputs_playback_pcm ... ok
+test ramp_is_per_frame_not_per_channel ... ok
+test round_trip_is_authoritative_total_no_double_add ... ok
+test unverified_reported_is_excluded_not_summed ... ok
+test verified_reported_components_are_summed ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\monitor_engine.rs (target\debug\deps\monitor_engine-dec516c1894b726a.exe)
+
+running 10 tests
+test auto_punch_gate_routes_input_and_playback_on_engine_pcm ... ok
+test input_missing_fails_closed_to_muted_on_engine ... ok
+test loop_gate_open_contiguous_on_engine ... ok
+test monitor_engine_does_not_alter_engine_playback ... ok
+test monitor_state_matrix_routes_on_engine ... ok
+test punch_gate_across_tempo_boundary_on_engine ... ok
+test punch_in_loop_gate_repeats_open_per_pass_on_engine ... ok
+test routing_engine_implements_engine_blocks ... ok
+test sample_rate_mismatch_is_rejected ... ok
+test session_position_drift_fails_closed ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests\monitor_rt_node.rs (target\debug\deps\monitor_rt_node-78d2dd468e91043b.exe)
+
+running 9 tests
+test monitor_rt_node_compiled_monitor_input_is_a_direct_edge ... ok
+test monitor_rt_node_constructor_rejects_invalid_config ... ok
+test monitor_rt_node_control_overflow_mutes_next_observed_block ... ok
+test monitor_rt_node_distinguishes_supplied_silence_from_missing_input ... ok
+test monitor_rt_node_frames_above_configured_max_write_zero_output ... ok
+test monitor_rt_node_mid_block_boundaries_match_independent_oracle ... ok
+test monitor_rt_node_playback_passthrough_preserves_bits_and_nonmonitor_path ... ok
+test monitor_rt_node_schedule_contract_violations_fail_closed ... ok
+test monitor_rt_node_unused_missing_monitor_input_is_not_input_missing ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\monitor_rt_rt.rs (target\debug\deps\monitor_rt_rt-f75376805680bba4.exe)
+
+running 1 test
+test rt_monitor_node_process_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_b.rs (target\debug\deps\pc_b-bffde82f794e803c.exe)
+
+running 8 tests
+test pc_b_01_dispatch_delivers_param_events ... ok
+test pc_b_01_rejections_propagate ... ok
+test pc_b_04_offline_render_matches_playback ... ok
+test pc_b_05_dispatch_before_seek_drains_at_old_cursor ... ok
+test pc_b_05_headless_driver_dispatch_and_seek ... ok
+test pc_b_05_midrun_activation_reanchors_node ... ok
+test pc_b_05_rejected_install_never_projects_dispatched ... ok
+test pc_b_05_unmatched_attached_rejected ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\pc_c4_03_observation.rs (target\debug\deps\pc_c4_03_observation-84ea5c7dc36555ce.exe)
+
+running 8 tests
+test pc_c4_03_01_reported_value_advances_ledger_to_reported ... ok
+test pc_c4_03_02_unavailable_terminates_pending_entries ... ok
+test pc_c4_03_03_generation_gate_refuses_foreign_reports ... ok
+test pc_c4_03_04_inactive_gate_keeps_reports_queued ... ok
+test pc_c4_03_05_unbound_and_non_param_reports_stay_out_of_ledger ... ok
+test pc_c4_03_06_host_errors_are_typed ... ok
+test pc_c4_03_07_repeated_drains_do_not_duplicate ... ok
+test pc_c4_03_08_generation_swap_gates_old_reports ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests\pc_c4_05_persisted_instance.rs (target\debug\deps\pc_c4_05_persisted_instance-ba385535e9f39f53.exe)
+
+running 3 tests
+test hydration_uses_persisted_instance_id ... ok
+test missing_or_mismatched_identity_fails_closed ... ok
+test reload_restores_same_instance_id ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\pc_c4_07_capability_rebind.rs (target\debug\deps\pc_c4_07_capability_rebind-a1e27f2e429e6a50.exe)
+
+running 2 tests
+test pc_c4_07_rebind_boundary_drift_blocks_publish ... ok
+test pc_c4_07_rebind_params_drift_junction ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\pc_c4_07_transport_observe.rs (target\debug\deps\pc_c4_07_transport_observe-af95c4b3fe2c9476.exe)
+
+running 10 tests
+test pc_c4_07_01_observe_block_derives_transport_span ... ok
+test pc_c4_07_02_position_advances_and_event_dispatches ... ok
+test pc_c4_07_03_generation_gating_fail_closed ... ok
+test pc_c4_07_04_commanded_stop_projects_stopped ... ok
+test pc_c4_07_05_commanded_seek_reanchors_position ... ok
+test pc_c4_07_06_mid_window_apply_splits_projection ... ok
+test pc_c4_07_07_pause_freezes_then_play_resumes ... ok
+test pc_c4_07_08_loop_region_projects_into_context ... ok
+test pc_c4_07_09_generation_swap_mints_fresh_mirror ... ok
+test pc_c4_07_10_receipts_confirm_mirror_generations ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests\pc_c4_binding.rs (target\debug\deps\pc_c4_binding-747f22be317f736d.exe)
+
+running 8 tests
+test pc_c4_01_eval_dispatch_receipt_rt_offline_parity ... ok
+test pc_c4_02_dispatch_plugin_pin_and_last_good ... ok
+test pc_c4_02_instance_authority_bind_gate ... ok
+test pc_c4_02_stage1_authority_and_plugin_identity ... ok
+test pc_c4_02_typed_rejects_no_misdelivery ... ok
+test pc_c4_03_composite_control_and_gates ... ok
+test pc_c4_04_generation_consistency ... ok
+test pc_c4_05_verified_frame_base_contract ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c4_binding_rt.rs (target\debug\deps\pc_c4_binding_rt-35ae4c3f75bbff8b.exe)
+
+running 1 test
+test rt_pc_c4_session_bound_dispatch_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_pl.rs (target\debug\deps\pc_c6_oracle_pl-d5c1a8b73d963a5d.exe)
+
+running 8 tests
+test pc_c6_pl01_generation_and_identity_pins_reject_stale_records ... ok
+test pc_c6_pl02_param_identity_and_capability_contract ... ok
+test pc_c6_pl03_queue_full_and_atomic_batch_rejection ... ok
+test pc_c6_pl04_reload_keeps_instance_old_records_dead ... ok
+test pc_c6_pl05_min_process_frame_offset_delivery ... ok
+test pc_c6_pl06_plan_staleness_and_generation_axes ... ok
+test pc_c6_pl07_shared_param_and_stale_record_zero_misdelivery ... ok
+test pc_c6_pl08_headless_fixture_boundary_marker ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c6_oracle_pl_rt.rs (target\debug\deps\pc_c6_oracle_pl_rt-8411876b39faafc7.exe)
+
+running 1 test
+test rt_pl05_param_delivery_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_tr_dispatch.rs (target\debug\deps\pc_c6_oracle_tr_dispatch-b500e3abf667254d.exe)
+
+running 8 tests
+test tr01_stage_independence_real_ledger ... ok
+test tr02_context_mismatch_dimensions_real_ledger ... ok
+test tr03_context_change_stale_real_ledger ... ok
+test tr04_plugin_unavailable_vs_probe_states ... ok
+test tr05_plugin_reported_stamp_provenance ... ok
+test tr06_silence_vs_unobserved_real_ledger ... ok
+test tr07_shared_probe_two_contexts_real_ledger ... ok
+test tr08_bounded_retention_metrics_real_ledger ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\rcd02_blob_digest.rs (target\debug\deps\rcd02_blob_digest-016cb645d285913b.exe)
+
+running 10 tests
+test indeterminate_publish_is_reconciled_by_observation ... ok
+test legacy_crc32_receipt_keeps_flat_blob ... ok
+test missing_sha256_blob_is_republished ... ok
+test opaque_receipt_digest_fails_closed ... ok
+test publish_writes_sha256_blob_and_receipt ... ok
+test published_effect_failure_is_reconciled_by_observation ... ok
+test report_carries_provenance_fields ... ok
+test republish_is_idempotent_and_reuses_verified_blob ... ok
+test tampered_sha256_blob_fails_closed ... ok
+test unlanded_publish_retries_once_then_fails_closed ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\rcd_04_midi_phrase_boundary.rs (target\debug\deps\rcd_04_midi_phrase_boundary-2e78c2331b1bc051.exe)
+
+running 2 tests
+test rcd_04_boundary_driver_delivers_without_hanging_or_duplicate_voices ... ok
+test rcd_04_boundary_lowers_to_exact_wire_stream ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\rcp_04.rs (target\debug\deps\rcp_04-26c913585aa5564e.exe)
+
+running 30 tests
+test ex01_missing_instrument_checkpoint_substitutes_exact ... ok
+test ex01_missing_plugin_no_artifact_blocks_main_playback ... ok
+test ex01_missing_reverb_final_checkpoint_keeps_compressor_live ... ok
+test ex01_offline_render_and_export_require_exact ... ok
+test ex01_preview_intent_requires_opt_in_for_preview_artifact ... ok
+test ex02_dangling_input_when_region_feed_uncovered ... ok
+test ex02_double_feed_rejected ... ok
+test ex02_latency_mismatch_rejected ... ok
+test ex02_multiout_requires_every_output_port_covered ... ok
+test ex02_required_midi_output_needs_typed_artifact_support ... ok
+test ex02_send_return_boundary_input_must_be_pinned ... ok
+test ex02_unpinned_sidechain_input_rejected ... ok
+test ex03_acl_denied_and_stale_pin_rejected ... ok
+test ex03_bad_artifact_states_never_exact_for_main_playback ... ok
+test ex03_missing_plugin_verdicts_are_typed ... ok
+test ex03_stateless_decl_env_drift_and_uncaptured_stay_blocked ... ok
+test ex03_stateless_env_decl_verdict_matrix ... ok
+test ex03_stateless_plugin_selects_live ... ok
+test ex03_stateless_profile_is_typed_and_distinct_from_uncaptured ... ok
+test ex03_unknown_plugin_state_blocks_required_path ... ok
+test ex04_bound_parameter_and_automation_are_control_only ... ok
+test ex04_rename_is_no_rebuild ... ok
+test ex04_source_content_edit_rebuilds ... ok
+test ex04_structural_capability_and_render_changes_rebuild ... ok
+test ex05_active_requires_matching_generation_and_epoch ... ok
+test ex05_out_of_order_publish_rejected ... ok
+test ex05_plugin_restore_failure_and_epoch_change_block ... ok
+test ex05_queue_full_and_retire_failure_retain_last_good ... ok
+test ex05_rapid_edits_never_activate_stale_plan ... ok
+test ex05_reconcile_detects_drift_and_gates_delivery ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sf03_l1.rs (target\debug\deps\sf03_l1-c4175dc50d5b65e0.exe)
+
+running 13 tests
+test sf03_01_lower_semantic_topology_deterministic ... ok
+test sf03_01b_fingerprint_and_semantic_eq ... ok
+test sf03_02_semantic_audio_matches_legacy_bitexact ... ok
+test sf03_02b_two_track_mix_is_additive ... ok
+test sf03_03_strip_mute_prunes_edge ... ok
+test sf03_03b_disabled_connection_not_lowered ... ok
+test sf03_04_publish_then_active_receipt ... ok
+test sf03_04b_failure_preserves_last_good ... ok
+test sf03_04c_publish_rejects_stale_revision ... ok
+test sf03_04d_generation_scoped_source_map ... ok
+test sf03_05_send_gain_stage ... ok
+test sf03_05b_send_tap_pre_vs_post ... ok
+test sf03_06_chain_processor_instance ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests\sf03_l2.rs (target\debug\deps\sf03_l2-fe340eac0b143862.exe)
+
+running 11 tests
+test sf03_l2_01_prepare_fault_taxonomy ... ok
+test sf03_l2_02_lowering_fault_taxonomy ... ok
+test sf03_l2_03_publish_fault_taxonomy ... ok
+test sf03_l2_04_last_good_matrix ... ok
+test sf03_l2_05_reconcile_drift_matrix ... ok
+test sf03_l2_06_pending_publish_is_transient ... ok
+test sf03_l2_07_retry_uses_fresh_build ... ok
+test sf03_l2_08_event_stale_via_reconcile ... ok
+test sf03_l2_09_publish_queue_full_preserves_last_good ... ok
+test sf03_l2_10_offline_capability_gate ... ok
+test sf03_l2_11_offline_ignores_unused_instances ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running tests\sf03_l3.rs (target\debug\deps\sf03_l3-c21a8614709f9f01.exe)
+
+running 11 tests
+test sf03_l3_01_static_host_connect_consumes_instance ... ok
+test sf03_l3_02_connect_failure_preserves_last_good ... ok
+test sf03_l3_03_real_host_gain_processes_audio ... ok
+test sf03_l3_04_real_host_unknown_plugin_unavailable ... ok
+test sf03_l3_05_unresolved_binding_unavailable ... ok
+test sf03_l3_06_real_host_bus_mismatch_incompatible ... ok
+test sf03_l3_07_real_host_lifecycle_failure ... ok
+test sf03_l3_08_connect_failure_tears_down_prior_leases ... ok
+test sf03_l3_09_generation_teardown_lifecycle ... ok
+test sf03_l3_10_offline_real_host_fail_closed ... ok
+test sf03_l3_11_host_boundary_contract_and_lease_teardown ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+     Running tests\sf03_l4.rs (target\debug\deps\sf03_l4-6eab8cf8826f5572.exe)
+
+running 10 tests
+test sf03_l4_01_name_only_revision_is_equivalent ... ok
+test sf03_l4_02_undo_returns_equivalent_redo_rebuilds ... ok
+test sf03_l4_03_same_revision_always_builds ... ok
+test sf03_l4_04_non_equivalence_axes_build_or_fault ... ok
+test sf03_l4_05_reconcile_revision_only_vs_semantic_drift ... ok
+test sf03_l4_06_control_vending_one_shot_and_scoped ... ok
+test sf03_l4_07_stale_control_never_reaches_new_generation ... ok
+test sf03_l4_08_static_host_vends_no_control ... ok
+test sf03_l4_09_rapid_publishes_superseded_and_queue_full ... ok
+test sf03_l4_10_epoch_fault_then_fresh_retry ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests\sf03_l6.rs (target\debug\deps\sf03_l6-871141e82df5be08.exe)
+mbx[progress]: 1m 30s elapsed; 0 hits, 55 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+
+running 6 tests
+test sf03_l6_01_automation_tick_delivers_on_active_generation ... ok
+test sf03_l6_02_gate_holds_until_rt_observes_activation ... ok
+test sf03_l6_03_fast_control_gate_queue_and_typed_blocks ... ok
+test sf03_l6_04_queue_replays_through_new_generation_bindings ... ok
+test sf03_l6_05_equivalent_revision_refreshes_control_surface ... ok
+test sf03_l6_06_offline_build_attaches_without_plugin_controls ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests\sf03_l9.rs (target\debug\deps\sf03_l9-ac45fb5982b24f63.exe)
+
+running 5 tests
+test sf03_l9_01_host_generation_tracks_registrations ... ok
+test sf03_l9_02_publish_rejects_factory_drift ... ok
+test sf03_l9_03_reconcile_reports_host_capability_drift ... ok
+test sf03_l9_04_host_drift_defeats_equivalence ... ok
+test sf03_l9_05_host_swap_is_capability_drift ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests\sf04_loop_discontinuity.rs (target\debug\deps\sf04_loop_discontinuity-cea753b37bcd2acb.exe)
+
+running 4 tests
+test sf04_loop_declare_channel_full_keeps_observable_divergence ... ok
+test sf04_loop_observe_block_stale_generation_clears_flag ... ok
+test sf04_loop_set_and_clear_apply_declare_without_wrap ... ok
+test sf04_loop_wrap_windows_declare_and_close_compare ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests\sf04_probe_acceptance.rs (target\debug\deps\sf04_probe_acceptance-23efd3ab0dbfd142.exe)
+
+running 2 tests
+test sf04_probe_removed_entity_unbinds_and_reattach_binds_fresh ... ok
+test sf04_probe_same_key_request_is_idempotent_single_install ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sf04_probe_adapter.rs (target\debug\deps\sf04_probe_adapter-6a2691bd1abfddf9.exe)
+
+running 7 tests
+test sf04_probe_capture_segment_cuts_at_generation_boundary ... ok
+test sf04_probe_reinstalls_when_semantic_point_moves ... ok
+test sf04_probe_remove_records_stopped_lifecycle ... ok
+test sf04_probe_request_queues_then_rt_confirms_bound_active ... ok
+test sf04_probe_request_requires_a_published_plan ... ok
+test sf04_probe_stale_generation_command_is_rejected_and_rebound ... ok
+test sf04_probe_unresolvable_point_is_recorded_not_faked ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\sf04_s2_probe_trace_bridge.rs (target\debug\deps\sf04_s2_probe_trace_bridge-539c8dad7d28a8ec.exe)
+
+running 3 tests
+test sf04_s2_metric_events_become_measuring_updates_with_derived_stamp ... ok
+test sf04_s2_mode_off_maps_to_disabled_and_unrouted_record_returns_false ... ok
+test sf04_s2_stale_generation_records_are_rejected ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sf04_s3_probe_discontinuity.rs (target\debug\deps\sf04_s3_probe_discontinuity-d451c75c544d0729.exe)
+
+running 5 tests
+test sf04_s3_capture_segment_cuts_at_clock_epoch ... ok
+test sf04_s3_probe_modes_leave_master_output_identical ... ok
+test sf04_s3_probe_table_capacity_is_bounded ... ok
+test sf04_s3_rebind_channel_full_stays_atomic_and_recovers ... ok
+test sf04_s3_seek_bumps_cursor_clock_epoch_on_records ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests\sf04_s7_probe_compare.rs (target\debug\deps\sf04_s7_probe_compare-52a313e8ac579e2c.exe)
+
+running 10 tests
+test sf04_s7_binding_without_runtime_probe_is_not_bound ... ok
+test sf04_s7_bound_probe_without_records_has_no_observation_data ... ok
+test sf04_s7_empty_observed_range_is_coverage_empty ... ok
+test sf04_s7_evidence_budget_is_bounded ... ok
+test sf04_s7_monitored_probes_align_on_shared_cursor ... ok
+test sf04_s7_partial_coverage_is_conditional_never_aligned ... ok
+test sf04_s7_sides_on_different_epochs_are_epoch_mismatch ... ok
+test sf04_s7_unsubscribed_point_is_point_unresolved ... ok
+test sf04_s7_window_spanning_republish_is_generation_span ... ok
+test sf04_s7_window_spanning_seek_is_discontinuity_in_window ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\sf04_s8_probe_faults.rs (target\debug\deps\sf04_s8_probe_faults-9b357d68dd5caa52.exe)
+
+running 5 tests
+test sf04_s8_capture_variants_close_with_distinct_reasons ... ok
+test sf04_s8_chunk_pool_exhaustion_records_lost_blocks ... ok
+test sf04_s8_observation_states_stay_distinct ... ok
+test sf04_s8_telemetry_overflow_downgrades_coverage_fail_closed ... ok
+test sf04_s8_unreachable_fault_statuses_are_unfaked ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\sf04_s9_probe_discontinuity_declare.rs (target\debug\deps\sf04_s9_probe_discontinuity_declare-f284132b3abe0be6.exe)
+
+running 5 tests
+test sf04_s9_declare_channel_full_reports_error_and_keeps_epoch ... ok
+test sf04_s9_declare_cuts_segment_at_clock_epoch_without_moving_transport ... ok
+test sf04_s9_declare_observation_updates_carry_epoch_boundary ... ok
+test sf04_s9_declare_window_spanning_boundary_is_discontinuity_in_window ... ok
+test sf04_s9_stop_and_run_are_not_discontinuity_declarations ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests\sf06_send_path_pcm.rs (target\debug\deps\sf06_send_path_pcm-4fdd0e00cf162730.exe)
+
+running 3 tests
+test sf06_graph_edit_pcm_undo_save_reload ... ok
+test sf06_mute_solo_pcm_through_sends ... ok
+test sf06_send_pcm_pre_vs_post_tap ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests\sf_xr_01.rs (target\debug\deps\sf_xr_01-496a52ef7d173ffa.exe)
+
+running 2 tests
+test sfxr01_01_strip_send_authority_survives_serialization_undo_and_lowering ... ok
+test sfxr01_02_create_send_channel_map_consent_and_atomic_rejection ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim02_midi_node_delivery.rs (target\debug\deps\tim02_midi_node_delivery-acbb9b73d9509879.exe)
+
+running 8 tests
+test boundary_declared_node_stages_through_session_gate ... ok
+test clear_midi_plan_silences_staged_content ... ok
+test clip_events_deliver_to_chain_head_node ... ok
+test generation_swap_requires_restage ... ok
+test instrument_resolution_is_strict_chain_head ... ok
+test merged_plan_keeps_staged_midi_across_param_dispatches ... ok
+test staging_failures_are_typed ... ok
+test sync_midi_plans_reconciles_stage_and_clear ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests\tim02_midi_playback.rs (target\debug\deps\tim02_midi_playback-e68d0eda9151f374.exe)
+
+running 10 tests
+test tim02_compile_lowers_plan_to_wire_events ... ok
+test tim02_controller_chase_is_channel_aware ... ok
+test tim02_driver_delivers_midi_at_absolute_frames ... ok
+test tim02_loop_replay_releases_and_refires ... ok
+test tim02_native_tick_maps_to_engine_frames ... ok
+test tim02_panic_releases_hanging_voice_and_resume ... ok
+test tim02_rt_offline_parity ... ok
+test tim02_same_tick_off_precedes_ons ... ok
+test tim02_seek_releases_and_chases ... ok
+test tim02_smf_channel_provenance ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\tim02_midi_rt.rs (target\debug\deps\tim02_midi_rt-db3c3e5480f8c1c8.exe)
+
+running 1 test
+test rt_midi_delivery_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_attach_wiring.rs (target\debug\deps\tim03_attach_wiring-228ee8acf98b8548.exe)
+
+running 10 tests
+test tim03_aw_connect_declaration_scoped_per_processor ... ok
+test tim03_aw_connect_offline_uncertified ... ok
+test tim03_aw_connect_realtime_consented ... ok
+test tim03_aw_connect_undeclared_processor_legacy ... ok
+test tim03_aw_connect_unsupported_typed ... ok
+test tim03_aw_delivery_offline_ignores_consent ... ok
+test tim03_aw_delivery_offline_requires_certified_exact ... ok
+test tim03_aw_delivery_realtime_consent_degraded_clamped ... ok
+test tim03_aw_delivery_realtime_exact_default ... ok
+test tim03_aw_delivery_unsupported_and_degenerate ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_driver_loop_boundary.rs (target\debug\deps\tim03_driver_loop_boundary-798f0dabcec8ad22.exe)
+
+running 7 tests
+test tim03_dlb_01_activation_anchor_and_steady_loop ... ok
+test tim03_dlb_02_window_end_wrap_belongs_to_next_window ... ok
+test tim03_dlb_03_no_loop_and_stopped_have_no_wraps ... ok
+test tim03_dlb_04_set_loop_change_and_clear_loop ... ok
+test tim03_dlb_05_seek_into_active_loop_cascades ... ok
+test tim03_dlb_06_sessionless_node_stays_legacy ... ok
+test tim03_dlb_geometry_matrix_loop_wrap_derivation ... tim03-driver-loop-derivation-matrix {"rows":[{"derived_boundaries":[],"head_wrap_not_interior_cut":true,"loop_range_frames":[100,200],"observed_interior_cuts":[],"physical_calls":[[100,100,100]],"verdict":"pass","window_end_wrap_deferred":true,"window_frames":100},{"derived_boundaries":[72],"head_wrap_not_interior_cut":true,"loop_range_frames":[100,200],"observed_interior_cuts":[72],"physical_calls":[[128,128,72],[200,100,56]],"verdict":"pass","window_end_wrap_deferred":false,"window_frames":128},{"derived_boundaries":[44,144,244],"head_wrap_not_interior_cut":true,"loop_range_frames":[100,200],"observed_interior_cuts":[44,144,244],"physical_calls":[[256,156,44],[300,100,100],[400,100,100],[500,100,12]],"verdict":"pass","window_end_wrap_deferred":false,"window_frames":256}],"schema":"tim03-frame-boundary-matrix/driver-loop-derivation/v1"}
+ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim03_loop_boundary.rs (target\debug\deps\tim03_loop_boundary-d0dc021594f63332.exe)
+
+running 8 tests
+test tim03_lb_01_steady_loop_derives_offsets_matching_scheduler ... ok
+test tim03_lb_02_no_loop_and_not_playing_is_empty ... ok
+test tim03_lb_03_mid_window_set_loop_replaces_region ... ok
+test tim03_lb_04_mid_window_seek_preempts_predicted_wrap ... ok
+test tim03_lb_05_clear_loop_removes_later_wraps ... ok
+test tim03_lb_06_derived_points_feed_boundary_oracle ... ok
+test tim03_lb_07_provenance_gating_and_sessionless_nodes ... ok
+test tim03_lb_geometry_matrix_loop_wrap_derivation ... tim03-routing-loop-derivation-matrix {"rows":[{"derived_loop_wrap_offsets_including_head":[],"head_wrap_explicit_not_interior_cut":false,"loop_range_frames":[100,200],"observed_position_length_calls":[[100,100]],"verdict":"pass","window_end_wrap_excluded":true,"window_frames":100},{"derived_loop_wrap_offsets_including_head":[72],"head_wrap_explicit_not_interior_cut":false,"loop_range_frames":[100,200],"observed_position_length_calls":[[128,72],[100,56]],"verdict":"pass","window_end_wrap_excluded":false,"window_frames":128},{"derived_loop_wrap_offsets_including_head":[0,44,144,244],"head_wrap_explicit_not_interior_cut":true,"loop_range_frames":[100,200],"observed_position_length_calls":[[156,44],[100,100],[100,100],[100,12]],"verdict":"pass","window_end_wrap_excluded":false,"window_frames":256}],"schema":"tim03-frame-boundary-matrix/routing-loop-derivation/v1"}
+ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests\tim03_musical_transport_plan.rs (target\debug\deps\tim03_musical_transport_plan-aa30ac8a3c312e6c.exe)
+
+running 5 tests
+test invalid_project_state_is_honestly_absent_not_fixed_fallback ... tim03-dynamic-tempo-undo-redo {"fixed_960_fallback":false,"invalid_musical_input":"PpqnMismatch(480, 960)","missing_ppqn":true,"missing_tempo_map":true,"row_family":"negative_and_constraint_evidence","schema":"tim03-dynamic-tempo-undo-redo/v1","test":"invalid_project_state_is_honestly_absent_not_fixed_fallback","tested_sha":"d6368e0fbc97eb6284d6f198e8d954462ddf403f","verdict":"pass"}
+ok
+test musical_refresh_preserves_event_payload_positions_and_order ... ok
+test production_plan_mints_carry_complete_project_musical_source ... ok
+test routing_control_musical_refresh_preserves_representative_mixed_plan ... ok
+test routing_control_undo_redo_refresh_preserves_mixed_plan_and_exact_source ... tim03-dynamic-tempo-undo-redo {"events_preserved":[{"payload":"ParamValue(ParamEvent { param_id: ParamId(7), value: ParamValue(0.0) })","position":0,"source_sequence":"2","transport_generation":null},{"payload":"Midi(MidiEvent { group: MidiGroup(0), channel: MidiChannel(0), kind: NoteOn { key: NoteKey(60), velocity: 3381864011 } })","position":500,"source_sequence":"3","transport_generation":null},{"payload":"Midi(MidiEvent { group: MidiGroup(0), channel: MidiChannel(0), kind: NoteOn { key: NoteKey(64), velocity: 3381864011 } })","position":640,"source_sequence":"4","transport_generation":null},{"payload":"ParamValue(ParamEvent { param_id: ParamId(7), value: ParamValue(0.25) })","position":1200,"source_sequence":"0","transport_generation":null},{"payload":"ParamValue(ParamEvent { param_id: ParamId(7), value: ParamValue(0.5) })","position":1280,"source_sequence":"1","transport_generation":1}],"notification_scope":"ProjectController + explicit RoutingControlDispatch sync, not ProjectSession notification","row_family":"player_control_undo_redo_matrix","schema":"tim03-dynamic-tempo-undo-redo/v1","sequence":[{"after":{"project_revision":8,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960},{"bpm_milli":75000,"tick":9600}],"tempo_revision":10},"before":{"project_revision":7,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960}],"tempo_revision":9},"last_plan_musical_is_current":true,"operation":"add","plan_bpm_milli_after_edit_tick":75000,"plan_generation":3,"plan_ppqn":480,"plan_tempo_revision":10,"refresh_errors":{},"same_revision_divergence":null},{"after":{"project_revision":9,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960}],"tempo_revision":9},"before":{"project_revision":8,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960},{"bpm_milli":75000,"tick":9600}],"tempo_revision":10},"last_plan_musical_is_current":true,"operation":"undo","plan_bpm_milli_after_edit_tick":90000,"plan_generation":4,"plan_ppqn":480,"plan_tempo_revision":9,"refresh_errors":{},"same_revision_divergence":null},{"after":{"project_revision":10,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960},{"bpm_milli":75000,"tick":9600}],"tempo_revision":10},"before":{"project_revision":9,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960}],"tempo_revision":9},"last_plan_musical_is_current":true,"operation":"redo","plan_bpm_milli_after_edit_tick":75000,"plan_generation":5,"plan_ppqn":480,"plan_tempo_revision":10,"refresh_errors":{},"same_revision_divergence":null},{"after":{"project_revision":11,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960}],"tempo_revision":9},"before":{"project_revision":10,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960},{"bpm_milli":75000,"tick":9600}],"tempo_revision":10},"last_plan_musical_is_current":true,"operation":"undo","plan_bpm_milli_after_edit_tick":90000,"plan_generation":6,"plan_ppqn":480,"plan_tempo_revision":9,"refresh_errors":{},"same_revision_divergence":null},{"after":{"project_revision":12,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960},{"bpm_milli":110000,"tick":9600}],"tempo_revision":10},"before":{"project_revision":11,"tempo_content_fingerprint":[{"bpm_milli":150000,"tick":0},{"bpm_milli":90000,"tick":960}],"tempo_revision":9},"last_plan_musical_is_current":true,"operation":"divergent-add","plan_bpm_milli_after_edit_tick":110000,"plan_generation":7,"plan_ppqn":480,"plan_tempo_revision":10,"refresh_errors":{},"same_revision_divergence":{"exact_b_allocation_carried_after_replacement":true,"same_project_basis":false,"same_revision":true,"stale_a_current_before_replacement":false}}],"staged_midi_preserved":true,"test":"routing_control_undo_redo_refresh_preserves_mixed_plan_and_exact_source","tested_sha":"d6368e0fbc97eb6284d6f198e8d954462ddf403f","verdict":"pass"}
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\tim03_process_boundary.rs (target\debug\deps\tim03_process_boundary-f1986fcf1ac4e12a.exe)
+
+running 21 tests
+test tim03_node_degraded_consented_boundary ... ok
+test tim03_node_exact_rejects_illegal_boundary ... ok
+test tim03_node_frame_boundary_matrix_exact_process_lengths ... tim03-headless-node-matrix {"frame_offset_meaning":"process-start-relative EventList.frame_offset","rows":[{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[100],"fresh_instance":true,"param_positions":[],"requested_boundary":0,"scenario":"seek-single","verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[1,99],"fresh_instance":true,"param_positions":[],"requested_boundary":1,"scenario":"seek-single","verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[99,1],"fresh_instance":true,"param_positions":[],"requested_boundary":99,"scenario":"seek-single","verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[128],"fresh_instance":true,"param_positions":[],"requested_boundary":0,"scenario":"seek-single","verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[1,127],"fresh_instance":true,"param_positions":[],"requested_boundary":1,"scenario":"seek-single","verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[100,28],"fresh_instance":true,"param_positions":[],"requested_boundary":100,"scenario":"seek-single","verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[127,1],"fresh_instance":true,"param_positions":[],"requested_boundary":127,"scenario":"seek-single","verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[256],"fresh_instance":true,"param_positions":[],"requested_boundary":0,"scenario":"seek-single","verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[1,255],"fresh_instance":true,"param_positions":[],"requested_boundary":1,"scenario":"seek-single","verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[100,156],"fresh_instance":true,"param_positions":[],"requested_boundary":100,"scenario":"seek-single","verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[255,1],"fresh_instance":true,"param_positions":[],"requested_boundary":255,"scenario":"seek-single","verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-node/v1"}
+ok
+test tim03_node_param_event_per_loop_occurrence ... ok
+test tim03_node_param_frame_offset_ordering_matrix ... tim03-headless-param-order-matrix {"different_param_relative_order":"no additional semantic invented","offsets":["0","1","middle","last-in-call"],"ordering":"(position_ticks, source_sequence), stable same-offset source order; same ParamId last-wins","rows":[{"boundary_kinds":[],"exact_process_lengths":[100],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":0,"param_id":9,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.2},{"absolute_position":0,"param_id":7,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.25},{"absolute_position":0,"param_id":7,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.75}],"requested_frame_offset":0,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":100},{"boundary_kinds":[],"exact_process_lengths":[100],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":1,"param_id":9,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.2},{"absolute_position":1,"param_id":7,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.25},{"absolute_position":1,"param_id":7,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.75}],"requested_frame_offset":1,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":100},{"boundary_kinds":[],"exact_process_lengths":[100],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":50,"param_id":9,"position_ticks":50,"process_start_relative_frame_offset":50,"value":0.2},{"absolute_position":50,"param_id":7,"position_ticks":50,"process_start_relative_frame_offset":50,"value":0.25},{"absolute_position":50,"param_id":7,"position_ticks":50,"process_start_relative_frame_offset":50,"value":0.75}],"requested_frame_offset":50,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":100},{"boundary_kinds":[],"exact_process_lengths":[100],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":99,"param_id":9,"position_ticks":99,"process_start_relative_frame_offset":99,"value":0.2},{"absolute_position":99,"param_id":7,"position_ticks":99,"process_start_relative_frame_offset":99,"value":0.25},{"absolute_position":99,"param_id":7,"position_ticks":99,"process_start_relative_frame_offset":99,"value":0.75}],"requested_frame_offset":99,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":100},{"boundary_kinds":[],"exact_process_lengths":[128],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":0,"param_id":9,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.2},{"absolute_position":0,"param_id":7,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.25},{"absolute_position":0,"param_id":7,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.75}],"requested_frame_offset":0,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":128},{"boundary_kinds":[],"exact_process_lengths":[128],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":1,"param_id":9,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.2},{"absolute_position":1,"param_id":7,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.25},{"absolute_position":1,"param_id":7,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.75}],"requested_frame_offset":1,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":128},{"boundary_kinds":[],"exact_process_lengths":[128],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":64,"param_id":9,"position_ticks":64,"process_start_relative_frame_offset":64,"value":0.2},{"absolute_position":64,"param_id":7,"position_ticks":64,"process_start_relative_frame_offset":64,"value":0.25},{"absolute_position":64,"param_id":7,"position_ticks":64,"process_start_relative_frame_offset":64,"value":0.75}],"requested_frame_offset":64,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":128},{"boundary_kinds":[],"exact_process_lengths":[128],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":127,"param_id":9,"position_ticks":127,"process_start_relative_frame_offset":127,"value":0.2},{"absolute_position":127,"param_id":7,"position_ticks":127,"process_start_relative_frame_offset":127,"value":0.25},{"absolute_position":127,"param_id":7,"position_ticks":127,"process_start_relative_frame_offset":127,"value":0.75}],"requested_frame_offset":127,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":128},{"boundary_kinds":[],"exact_process_lengths":[256],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":0,"param_id":9,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.2},{"absolute_position":0,"param_id":7,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.25},{"absolute_position":0,"param_id":7,"position_ticks":0,"process_start_relative_frame_offset":0,"value":0.75}],"requested_frame_offset":0,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":256},{"boundary_kinds":[],"exact_process_lengths":[256],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":1,"param_id":9,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.2},{"absolute_position":1,"param_id":7,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.25},{"absolute_position":1,"param_id":7,"position_ticks":1,"process_start_relative_frame_offset":1,"value":0.75}],"requested_frame_offset":1,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":256},{"boundary_kinds":[],"exact_process_lengths":[256],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":128,"param_id":9,"position_ticks":128,"process_start_relative_frame_offset":128,"value":0.2},{"absolute_position":128,"param_id":7,"position_ticks":128,"process_start_relative_frame_offset":128,"value":0.25},{"absolute_position":128,"param_id":7,"position_ticks":128,"process_start_relative_frame_offset":128,"value":0.75}],"requested_frame_offset":128,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":256},{"boundary_kinds":[],"exact_process_lengths":[256],"observed_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"param_positions":[{"absolute_position":255,"param_id":9,"position_ticks":255,"process_start_relative_frame_offset":255,"value":0.2},{"absolute_position":255,"param_id":7,"position_ticks":255,"process_start_relative_frame_offset":255,"value":0.25},{"absolute_position":255,"param_id":7,"position_ticks":255,"process_start_relative_frame_offset":255,"value":0.75}],"requested_frame_offset":255,"same_param_last_wins":{"final_value":0.75,"param_id":7},"scenario":"param-ordering-frame-offset","source_sequence_order":[1,2,3],"verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-param-order/v1","verdict":"pass","windows":[100,128,256]}
+ok
+test tim03_node_simultaneous_loop_seek_plan_param ... ok
+test tim03_node_stale_transport_generation_zero_delivery ... ok
+test tim03_pb_degraded_coalescing_and_wrap_bounds ... ok
+test tim03_pb_exact_windows_and_boundary_positions ... ok
+test tim03_pb_frame_boundary_matrix_exact_process_lengths ... tim03-headless-policy-matrix {"matrix":{"boundaries":["0","1","100","last"],"windows":[100,128,256]},"rows":[{"applied_boundaries":[],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":true,"param_positions":[],"physical_process_lengths":[100],"requested_boundary":0,"segment_lengths":[100],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":100},{"applied_boundaries":[1],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[1,99],"requested_boundary":1,"segment_lengths":[1,99],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"clamped":false,"classification":"invalid-out-of-window","combined_case":false,"requested_boundary":100,"verdict":"pass-negative","window_frames":100},{"applied_boundaries":[99],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[99,1],"requested_boundary":99,"segment_lengths":[99,1],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":100},{"applied_boundaries":[],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":true,"param_positions":[],"physical_process_lengths":[128],"requested_boundary":0,"segment_lengths":[128],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":128},{"applied_boundaries":[1],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[1,127],"requested_boundary":1,"segment_lengths":[1,127],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":128},{"applied_boundaries":[100],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[100,28],"requested_boundary":100,"segment_lengths":[100,28],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":128},{"applied_boundaries":[127],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[127,1],"requested_boundary":127,"segment_lengths":[127,1],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":128},{"applied_boundaries":[],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":true,"param_positions":[],"physical_process_lengths":[256],"requested_boundary":0,"segment_lengths":[256],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":256},{"applied_boundaries":[1],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[1,255],"requested_boundary":1,"segment_lengths":[1,255],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":256},{"applied_boundaries":[100],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[100,156],"requested_boundary":100,"segment_lengths":[100,156],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":256},{"applied_boundaries":[255],"boundary_kinds":["Seek"],"classification":"valid","combined_case":false,"head_boundary":false,"param_positions":[],"physical_process_lengths":[255,1],"requested_boundary":255,"segment_lengths":[255,1],"simultaneous_ordering":"single-kind baseline; combined ordering is covered by wired-combined rows","verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-policy/v1"}
+ok
+test tim03_pb_invalid_requests ... ok
+test tim03_pb_min_max_illegal_segment_policy ... ok
+test tim03_pb_offsets_zero_one_last ... ok
+test tim03_pb_precision_gates ... ok
+test tim03_pb_simultaneous_kinds_dedupe ... ok
+test tim03_sched_degraded_defers_apply ... ok
+test tim03_sched_events_boundary_and_stale_generation ... ok
+test tim03_sched_exact_rejects_illegal_apply ... ok
+test tim03_sched_exact_wrap_undeliverable ... ok
+test tim03_sched_frame_boundary_matrix_exact_spans ... tim03-headless-scheduler-matrix {"rows":[{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[100],"param_positions":[],"requested_boundary":0,"scenario":"seek-single","span_sequence":[[0,100]],"verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[1,99],"param_positions":[],"requested_boundary":1,"scenario":"seek-single","span_sequence":[[0,1],[1,100]],"verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[99,1],"param_positions":[],"requested_boundary":99,"scenario":"seek-single","span_sequence":[[0,99],[99,100]],"verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[128],"param_positions":[],"requested_boundary":0,"scenario":"seek-single","span_sequence":[[0,128]],"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[1,127],"param_positions":[],"requested_boundary":1,"scenario":"seek-single","span_sequence":[[0,1],[1,128]],"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[100,28],"param_positions":[],"requested_boundary":100,"scenario":"seek-single","span_sequence":[[0,100],[100,128]],"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[127,1],"param_positions":[],"requested_boundary":127,"scenario":"seek-single","span_sequence":[[0,127],[127,128]],"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[256],"param_positions":[],"requested_boundary":0,"scenario":"seek-single","span_sequence":[[0,256]],"verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[1,255],"param_positions":[],"requested_boundary":1,"scenario":"seek-single","span_sequence":[[0,1],[1,256]],"verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[100,156],"param_positions":[],"requested_boundary":100,"scenario":"seek-single","span_sequence":[[0,100],[100,256]],"verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"deliverable":true,"exact_process_lengths":[255,1],"param_positions":[],"requested_boundary":255,"scenario":"seek-single","span_sequence":[[0,255],[255,256]],"verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-scheduler/v1","tie_rule_consumer_evidence":"same-frame apply wins over wrap; wrap is re-evaluated in the post-apply state"}
+ok
+test tim03_sched_simultaneous_loop_seek_plan ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\tim03_process_boundary_rt.rs (target\debug\deps\tim03_process_boundary_rt-56b9c8e6adf419b1.exe)
+
+running 1 test
+test rt_process_boundary_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_request_plan.rs (target\debug\deps\tim03_request_plan-463189ed2f6a1800.exe)
+
+running 10 tests
+test tim03_cap_offline_exact_fail_closed ... ok
+test tim03_cap_realtime_degraded_requires_consent ... ok
+test tim03_cap_unsupported_typed_refusal ... ok
+test tim03_prov_foreign_dispatch_refused ... ok
+test tim03_prov_stale_generations_zero_delivery ... ok
+test tim03_prov_stale_window_stages_nothing ... ok
+test tim03_req_exact_matrix_windows_and_offsets ... tim03-wired-session-matrix {"invalid_window100_boundary100":"typed-invalid-covered-by-policy-matrix; never clamped","rows":[{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[100],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":0,"verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[1,99],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":1,"verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[99,1],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":99,"verdict":"pass","window_frames":100},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[128],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":0,"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[1,127],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":1,"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[100,28],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":100,"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[127,1],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":127,"verdict":"pass","window_frames":128},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[256],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":0,"verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[1,255],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":1,"verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[100,156],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":100,"verdict":"pass","window_frames":256},{"boundary_kinds":["Seek"],"combined_case":false,"exact_process_lengths":[255,1],"fresh_instance":true,"param_positions":[],"queue_residue_dependency":false,"requested_boundary":255,"verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/wired-session/v1"}
+ok
+test tim03_req_min_max_process_length_fail_closed ... ok
+test tim03_req_plan_install_boundary_checked ... ok
+test tim03_req_simultaneous_loop_seek_tempo_param ... tim03-wired-session-matrix {"rows":[{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[100],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":300,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":0,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":100},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[1,99],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":299,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":1,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":100},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[99,1],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":201,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":99,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":100},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[128],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":300,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":0,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":128},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[1,127],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":299,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":1,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":128},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[100,28],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":200,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":100,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":128},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[127,1],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":173,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":127,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":128},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[256],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":300,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":0,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":256},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[1,255],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":299,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":1,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":256},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[100,156],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":200,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":100,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":256},{"boundary_kinds":["LoopWrap","Seek","PlanInstall","Param"],"combined_case":true,"exact_process_lengths":[255,1],"frame_offset_meaning":"process-start-relative EventList.frame_offset","fresh_instance":true,"initial_position_ticks":45,"loop_range_ticks":[0,300],"observed_window_param_hit_count":3,"param_positions":[{"absolute_position":7,"exactly_once":true,"exactly_once_scope":"whole-window","position_ticks":7,"post_seek_base_position":7,"process_start_relative_frame_offset":0,"simultaneous_with_boundary":true}],"post_seek_loop_position":7,"requested_boundary":255,"scenario":"combined-loop-seek-tempo-plan-param","seek_target_ticks":307,"simultaneous_command_order":["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],"tempo_plan":{"expected_delivery_order":[[9,0.2],[7,0.25],[7,0.75]],"musical_ppqn":480,"observed_call_start_bpm_milli":120000,"observed_call_start_ppqn":480,"param_source_sequences":[3,1,2],"same_param_last_wins":{"final_value":0.75,"param_id":7},"tempo_is_not_transport_command":true,"tempo_map_revision":1},"tie_rule":"same-frame apply wins over wrap; wrap re-evaluated in post-apply state","verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/wired-combined/v1"}
+ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\tim03_session_wiring.rs (target\debug\deps\tim03_session_wiring-163e95e04fb2a21c.exe)
+
+running 10 tests
+test tim03_sw_01_driver_session_open_and_provenance ... ok
+test tim03_sw_02_routing_session_vend_and_provenance ... ok
+test tim03_sw_03_routing_plan_and_stage_window ... ok
+test tim03_sw_04_06_driver_dispatch_params_and_stale_provenance ... ok
+test tim03_sw_05_driver_span_context_is_honest ... ok
+test tim03_sw_06_driver_node_mismatch ... ok
+test tim03_sw_06_routing_stale_provenance_and_generation_swap ... ok
+test tim03_sw_07_driver_queue_full_typed ... ok
+test tim03_sw_08_driver_unsupported_spec_fails_activation ... ok
+test tim03_sw_10_driver_plan_window_segments_legal ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\tim04_l1_abi_state.rs (target\debug\deps\tim04_l1_abi_state-b3bd085efd9aa42f.exe)
+
+running 4 tests
+test l1_fault_projection_and_old_blob_protection ... mbx[progress]: 1m 45s elapsed; 0 hits, 55 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+ok
+test l1_permission_fault_matrix_real_rfst ... ok
+test l1_scan_lifecycle_and_capture_quality_matrix ... ok
+test l1_stateful_save_mutate_restore_save_roundtrip ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.69s
+
+     Running tests\tim04_plugin_state.rs (target\debug\deps\tim04_plugin_state-9bcba744353fbe87.exe)
+
+running 9 tests
+test capture_after_stop_processing_is_coordinated ... ok
+test capture_while_processing_is_best_effort ... ok
+test capture_with_quiescent_mode_records_quiescent ... ok
+test describe_reports_bind_identity ... ok
+test destroyed_instance_fails_closed ... ok
+test engine_vends_empty_state_handles_for_unknown_generation ... ok
+test save_restore_roundtrip_through_session ... ok
+test unknown_processor_is_unavailable ... ok
+test unsupported_plugin_reports_unsupported ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim04_real_abi_state.rs (target\debug\deps\tim04_real_abi_state-4fc0ee350dd1a78a.exe)
+
+running 6 tests
+test artifact_resolution_and_scan_surface_fail_closed ... ok
+test capability_matrix_is_measured_for_real_test_plugins ... ok
+test clap_stateful_roundtrip_oracle ... ok
+test corrupt_and_missing_blobs_restore_as_typed_failures ... ok
+test vst3_distributed_stateful_roundtrip_oracle ... ok
+test vst3_single_stateful_roundtrip_oracle ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+     Running tests\trace_c3_05.rs (target\debug\deps\trace_c3_05-ac71d7cf8143dbf4.exe)
+
+running 5 tests
+test trace_c3_05_bounded_history_and_expired ... ok
+test trace_c3_05_plan_replaced_drop_is_explicit ... ok
+test trace_c3_05_receipt_correlation ... ok
+test trace_c3_05_reported_and_unavailable_stages ... ok
+test trace_c3_05_stages_fill_from_ledger_events ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\trace_c3_05_rt.rs (target\debug\deps\trace_c3_05_rt-b8dddf5856ea4005.exe)
+
+running 1 test
+test rt_trace_adapter_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\verified_import.rs (target\debug\deps\verified_import-2bbb72442376ac09.exe)
+
+running 8 tests
+test crc32_fold_source_still_resolves ... ok
+test imported_source_is_gated_until_entry_verifies ... ok
+test interrupted_job_inspects_resumes_and_plays ... ok
+test opaque_digest_fails_closed ... ok
+test saved_head_load_replays ... ok
+test sha256_import_resolves_and_plays ... ok
+test sha256_missing_and_mismatch_fail_typed ... ok
+test undo_then_reimport_converges_reserved_ids ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+   Doc-tests synvelis_player
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+mbx[cache]: 0 hits, 55 misses, 1 incremental, 1 bypassed; 0 B downloaded, 0 B uploaded, 9.9 GiB stored locally
+mbx[savings]: 5d 4h not spent compiling, over 8406 builds. what you did instead is between you and the terminal.

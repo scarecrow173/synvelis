@@ -1,0 +1,8 @@
+[check] $ cargo check --locked --all-targets -p synvelis-player
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-project)
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-library)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-recording)
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-player)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.79s
+mbx[cache]: 2 hits, 58 misses; 0 B downloaded, 0 B uploaded, 4.8 MiB stored locally
+mbx[savings]: your deleted worktrees left 10.7 TiB logical behind. left. past tense.

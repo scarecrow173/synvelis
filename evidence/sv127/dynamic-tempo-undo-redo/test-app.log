@@ -1,0 +1,913 @@
+[test] $ cargo test --locked -p synvelis-app
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-app)
+mbx[progress]: 15s elapsed; 0 hits, 3 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 30s elapsed; 0 hits, 12 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 45s elapsed; 0 hits, 20 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 1m elapsed; 0 hits, 21 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 1m 15s elapsed; 0 hits, 28 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 1m 30s elapsed; 0 hits, 35 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 1m 45s elapsed; 0 hits, 41 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 2m elapsed; 0 hits, 48 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 19s
+     Running unittests src\lib.rs (target\debug\deps\synvelis_app-d3f8153f064e8d42.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\asset_check.rs (target\debug\deps\asset_check-f581cc1453872c97.exe)
+
+running 10 tests
+test missing_manifest_is_explained ... ok
+test malformed_manifest_is_explained ... ok
+test schema_mismatch_is_explained ... ok
+test ipc_mismatch_is_explained ... ok
+test hash_mismatch_is_explained ... ok
+test bundle_without_index_html_is_explained ... ok
+test revision_mismatch_is_explained ... ok
+test unsafe_entry_is_explained ... ok
+test valid_bundle_passes ... ok
+test missing_entry_is_explained ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\autx07_automation.rs (target\debug\deps\autx07_automation-65ae4dba395e12fd.exe)
+
+running 7 tests
+test decode_rejects_unknown_targets_and_actions ... ok
+test decode_view_local_selects_and_category ... ok
+test decode_macro_and_cancel_commands ... ok
+test empty_states_render_empty_labels_without_panicking ... ok
+test decode_rejects_malformed_params ... ok
+test decode_domain_commands_carry_capability_target_args ... ok
+test mount_helpers_produce_valid_view_hosts ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\binding.rs (target\debug\deps\binding-36fb40b81abfef72.exe)
+
+running 12 tests
+test notify_to_view_event_projection_row ... ok
+test attach_intent_wire_shape_and_generation_adoption ... ok
+test detach_and_close_transitions ... ok
+test app_state_view_state_lifecycle_and_error_demux ... ok
+test notify_to_view_event_receipt_statuses ... ok
+test receipt_and_projection_demux_with_view_filter ... ok
+test control_dispatch_carries_typed_intent_and_ctx ... ok
+test decode_view_command_snake_to_camel ... ok
+test gesture_lifecycle_mints_shared_gesture_id ... ok
+test decode_view_command_rejects_malformed ... ok
+test view_command_dispatch_mints_dispatch_intent ... ok
+test decode_view_command_atomic_and_action_distinctions ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cb09_variant_diff.rs (target\debug\deps\cb09_variant_diff-d07dd6e37db35fea.exe)
+
+running 11 tests
+test cb09_app_adopt_requires_explicit_approval ... ok
+test cb09_app_visual_open_close_and_kind_gate ... ok
+test cb09_app_adopt_commits_through_cas ... ok
+test cb09_app_adopt_preview_never_commits ... ok
+test cb09_app_view_local_actions_never_touch_authority ... ok
+test cb09_app_open_with_target_seed ... ok
+test cb09_app_adopt_rejects_stale_revision_cas ... ok
+test cb09_app_compare_stores_pin_scoped_evidence ... ok
+test cb09_app_variant_diff_spec_mounts_on_view_host ... ok
+test cb09_app_compare_rejects_stale_and_implicit_pins ... ok
+test cb09_app_project_switch_clears_variant_diff_state ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests\close_veto.rs (target\debug\deps\close_veto-7a266604421f769c.exe)
+
+running 6 tests
+test dirty_last_window_close_is_vetoed ... ok
+test clean_last_window_close_approves_and_exits ... ok
+test quit_with_clean_project_closes_all_windows ... ok
+test dirty_non_last_window_close_approves_without_guard_query ... ok
+test quit_with_dirty_project_partially_vetoes ... ok
+test close_guard_reports_unsaved_changes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests\dock_ops.rs (target\debug\deps\dock_ops-b66d7b7332cebf56.exe)
+
+running 12 tests
+test destroyed_with_release_views_closes_docked_views ... ok
+test view_detach_pools_and_view_attach_reattaches ... ok
+test dock_commit_after_destination_destroy_fails_closed ... ok
+test dock_detach_reattach_round_trips_through_pool ... ok
+test dock_transfer_preserves_project_and_transport_state ... ok
+test window_adopt_is_idempotent_and_list_reports_dock ... ok
+test new_window_creation_failure_aborts_and_keeps_source ... ok
+test dock_abort_preserves_source_ownership ... ok
+test legacy_view_ids_stay_ui_only ... ok
+test dock_prepare_commit_moves_view_everywhere ... ok
+test saga_destination_destroyed_before_ready_aborts ... ok
+test new_window_saga_commits_on_destination_ready ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\library_browser.rs (target\debug\deps\library_browser-6adbfe37a4f91f95.exe)
+
+running 24 tests
+test malformed_action_params_are_invalid_params ... ok
+test drag_ghost_never_mutates_project ... ok
+test close_removes_view_and_model ... ok
+test browse_pages_and_typed_states ... ok
+test open_view_projects_providers_state_and_spec ... ok
+test ops_registered_and_dispatch_through_runtime ... ok
+test provider_switch_invalidates_bound_state ... ok
+test unsupported_capabilities_stay_typed ... ok
+test preview_fetch_job_cancels_cooperatively ... ok
+test unbound_backend_is_typed_not_fabricated ... ok
+test view_rejects_unregistered_and_wrong_kind ... ok
+test import_without_backend_or_fetch_is_typed ... ok
+test search_stat_pin_and_preview_flow ... ok
+test job_actions_run_through_runtime_job_lane ... ok
+test import_cancel_is_cross_view ... ok
+test import_submit_dedups_in_flight ... ok
+test job_ack_and_ledger_wire_shape ... ok
+test import_commits_live_and_replays_idempotently ... ok
+test view_close_leaves_job_in_ledger ... ok
+test library_backend_survives_project_new ... ok
+test import_cancel_mid_flight_then_retry_recovers ... ok
+test import_publish_failure_is_recoverable_and_resumes ... ok
+test provider_switch_scopes_import_surface ... ok
+test import_stale_revision_rebase_retry_recovers ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests\library_native_mount.rs (target\debug\deps\library_native_mount-0ce8cce1165f22d7.exe)
+
+running 8 tests
+test unbound_backend_ops_answer_typed_unavailable ... ok
+test library_view_mounts_wire_spec_verbatim ... ok
+test library_command_intent_rejects_params_on_non_admitted_target ... ok
+test native_shell_attaches_marks_dirty_and_re_reads_library_spec ... ok
+test mount_lifecycle_and_browse_ops_leave_project_authority_untouched ... ok
+test library_command_intent_decodes_and_routes_to_library_action ... ok
+test mounted_view_projects_real_local_folder_state ... ok
+test import_submits_through_real_import_ports ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\logging.rs (target\debug\deps\logging-2595665844717788.exe)
+
+running 11 tests
+test parse_args_rejects_unknown_args_and_missing_values ... ok
+test resolve_defaults_to_disabled_and_install_is_off ... ok
+test resolve_rejects_unknown_format ... ok
+test resolve_applies_cli_over_env_over_defaults ... ok
+test parse_args_accepts_all_logging_flag_forms ... ok
+test resolve_enablement_rules ... ok
+test to_logging_config_maps_sinks ... ok
+test observability_sources_describe_app_counters ... ok
+2026-11-27T17:43:52.107497Z  INFO logging: syn-obs-01 global event
+test build_logging_reports_degraded_best_effort_sink ... ok
+test scoped_dispatch_writes_events_without_global_install ... ok
+test global_install_is_once_per_process ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\monitor_arm.rs (target\debug\deps\monitor_arm-6b606c083b7714d3.exe)
+
+running 20 tests
+test monitoring_declarations_write_through_project ... ok
+test e7_inactive_session_projection_is_honest ... ok
+test e3_hardware_direct_states_and_double_monitoring ... ok
+test e6_latency_and_low_latency_projection ... ok
+test e8_declaration_boundaries_are_rejected ... ok
+test e8_session_scope_declarations_do_not_touch_project ... ok
+test monitoring_runtime_state_does_not_mutate_project ... ok
+test e4_input_unavailable_is_explicit ... ok
+test monitoring_long_session_keeps_gate_open_projection ... ok
+test e8_punch_outside_loop_is_rejected ... ok
+test e8_punch_in_loop_session_projects_per_pass_punch ... ok
+test e5_view_window_and_project_transport_do_not_change_monitor_state ... ok
+test e8_loop_session_projects_gate_and_pass_segments ... ok
+test e8_count_in_pre_roll_phases_keep_gate_closed ... ok
+test e2_punch_segments_are_contiguous_half_open ... ok
+test monitoring_set_rejects_invalid_params ... ok
+test punch_rejected_while_monitor_session_active ... ok
+test service_registers_monitoring_ops ... ok
+test e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo ... ok
+test monitoring_state_survives_project_save_open ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests\pc_c4_04_app_composition.rs (target\debug\deps\pc_c4_04_app_composition-2b0b1d8f143f0fb2.exe)
+
+running 4 tests
+test catalog_vend_binds_on_publish ... ok
+test ui_pump_drives_control_tick ... ok
+test reported_observation_reaches_control_feed ... ok
+test generation_swap_gates_stale_surface ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\pc_c4_06_control_op_surface.rs (target\debug\deps\pc_c4_06_control_op_surface-bef84c1c8483857a.exe)
+
+running 4 tests
+test control_ops_fail_closed_without_surface ... ok
+test observe_fails_closed_on_stale_generation ... ok
+test fast_control_and_status_return_typed_evidence ... ok
+test observe_reports_stages_and_feeds_only_reported ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\pc_c4_drain_composition.rs (target\debug\deps\pc_c4_drain_composition-4b97d524c240e268.exe)
+
+running 4 tests
+test inactive_gate_and_queue_saturation_fail_closed ... ok
+test drain_reports_reach_observed_feed ... ok
+test composition_root_assembles_surface_and_periodic_drain ... ok
+test project_recreate_clears_drain_and_its_evidence ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests\pc_c4_l1_real_abi_binding.rs (target\debug\deps\pc_c4_l1_real_abi_binding-353bc5d0a4bcfb65.exe)
+
+running 2 tests
+test pc_c4_l1_vst3_real_abi_binding ... ok
+test pc_c4_l1_clap_real_abi_binding ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.18s
+
+     Running tests\pc_c4_observe_engine_wiring.rs (target\debug\deps\pc_c4_observe_engine_wiring-126f6438ad8212fa.exe)
+
+running 4 tests
+test run_buffers_one_cycle_per_block ... ok
+test engine_observations_feed_reported_to_workspace ... ok
+test ui_pump_drives_observation_feed ... ok
+test status_observe_section_tracks_node_cursor_domain ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\pc_c4_webview_composition.rs (target\debug\deps\pc_c4_webview_composition-301437bc4a417f2c.exe)
+
+running 3 tests
+test project_dir_gate_keeps_engine_stub ... ok
+test project_dir_attaches_engine_and_control_surface ... ok
+test project_recreate_detaches_engine ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\plugin_dock.rs (target\debug\deps\plugin_dock-d5f5fe2109864455.exe)
+
+running 26 tests
+test placement_vocabulary_round_trips_honestly ... ok
+test adapter_lend_refusal_is_honest_unavailable ... ok
+test occupied_and_unknown_instance_guards ... ok
+test open_mints_four_ids_and_lands_attached ... ok
+test close_without_host_converges_host_lost ... ok
+test instance_termination_converges_and_frees_lease ... ok
+test detach_hides_editor_without_closing_session ... ok
+test hide_show_round_trip_mirrors_slot_visibility ... ok
+test revoked_lease_is_stale_at_the_ledger ... ok
+test relocate_republishes_slot_and_revokes_old_lease ... ok
+test relocate_keeps_old_parent_on_adapter_refusal ... ok
+test close_retires_session_and_frees_panel ... ok
+test restore_honors_saved_visibility ... ok
+test session_busy_is_refused_across_panels ... ok
+test unsupported_open_lands_failed_honestly ... ok
+test window_lost_converges_session_and_frees_slot ... ok
+test save_restore_round_trip_persists_only_logical_state ... ok
+test ops_refuse_unavailable_without_a_host ... ok
+test duplicate_instance_across_views_is_refused ... ok
+test unknown_instance_is_refused ... ok
+test ops_refuse_unavailable_without_an_authority ... ok
+test view_close_retires_the_panel ... ok
+test save_restore_ops_round_trip ... ok
+test plugin_dock_ops_do_not_touch_project_or_dsp_state ... ok
+test window_destroy_converges_editor_and_preserves_project ... ok
+test plugin_dock_ops_drive_the_full_editor_lifecycle ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\plugin_dock_contract.rs (target\debug\deps\plugin_dock_contract-458d0c2049190aa5.exe)
+
+running 5 tests
+test plugin_dock_view_spec_declares_the_plugin_editor_native_slot ... ok
+test plugin_dock_spec_requires_native_dock_and_visual_capture ... ok
+test plugin_dock_spec_gate_is_unsupported_before_the_body_runs ... ok
+test plugin_artifact_evidence_carries_the_six_identity_dims ... ok
+test view_mount_case_passes_on_the_fake_adapter ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_contract_gpui.rs (target\debug\deps\plugin_dock_contract_gpui-ec6b7eed2a77472b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_probe.rs (target\debug\deps\plugin_dock_probe-560fb69a5e5a0681.exe)
+
+running 7 tests
+test catalog_projection_covers_every_declared_requirement ... ok
+test missing_artifact_fails_closed_as_not_run ... ok
+test catalog_matches_run_all_reports ... ok
+test product_dock_vst3_test_gain_open_refused_is_honest ... ok
+test product_dock_vst3_test_editor_attach_observation ... ok
+test fixture_run_reports_honest_verdicts ... ok
+test clap_artifact_and_host_lifecycle_probe ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests\plugin_dock_surface.rs (target\debug\deps\plugin_dock_surface-2dda6b581ad23a82.exe)
+
+running 7 tests
+test forged_lease_payload_is_rejected ... ok
+test lease_validates_through_the_shared_authority_only ... ok
+test double_release_is_refused ... ok
+test open_after_busy_clear_lands_attached ... ok
+test released_lease_is_rejected_at_validate_and_redeem ... ok
+test busy_slot_refuses_lease_until_cleared ... ok
+test recycled_index_rejects_stale_generation_and_lease ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_product_e2e.rs (target\debug\deps\rcd_04_product_e2e-b5f5773672dec391.exe)
+
+running 5 tests
+test rcd04_stale_gesture_and_readonly_history_product_e2e ... ok
+test rcd04_recovery_corrupt_and_discard_guards_product_e2e ... ok
+test rcd04_comp_transition_product_e2e ... ok
+test rcd04_midi_phrase_product_e2e ... ok
+test rcd04_recovery_review_product_e2e ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+
+     Running tests\rcp06_render.rs (target\debug\deps\rcp06_render-420884edf2ea7cac.exe)
+
+running 11 tests
+test decode_rejects_unknown_targets_and_actions ... ok
+test empty_states_render_empty_labels_without_panicking ... ok
+test decode_view_local_and_domain_commands ... ok
+test decode_rejects_malformed_params ... ok
+test branch_diff_spec_shows_pins_boundaries_and_missing_plugins ... ok
+test status_spec_surfaces_axes_reasons_pins_and_policy_without_color ... ok
+test view_local_command_applies_to_state_only ... ok
+test mount_helpers_produce_valid_view_hosts ... ok
+test status_spec_shows_policy_provenance_commit_and_trigger_block ... ok
+test populated_status_state_mounts_without_spec_errors ... ok
+test request_spec_gates_buttons_to_executable_candidates_only ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\recorder_wire.rs (target\debug\deps\recorder_wire-0029c10e4c9ef7c8.exe)
+
+running 12 tests
+test recorder_wire_ops_registered_and_idle_without_device ... ok
+test recorder_wire_start_without_device_is_typed_error ... ok
+test recorder_wire_start_rejects_oversized_target_channels ... ok
+test recorder_wire_start_rejects_loop_before_transport ... ok
+test recorder_wire_device_fault_latches_and_marks ... ok
+test recorder_wire_discard_closes_without_commit ... ok
+test recorder_wire_full_lifecycle_headless ... ok
+test recorder_wire_mark_take_verified ... ok
+test recorder_wire_undo_redo_rejected_while_active ... ok
+test recorder_wire_project_new_resets_active_session ... ok
+test recorder_wire_commit_retries_after_staging_io_failure ... ok
+test recorder_wire_stop_retries_after_partial_finalize_failure ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests\recording_projection.rs (target\debug\deps\recording_projection-a427116975b47a0b.exe)
+
+running 3 tests
+test populated_registry_projects_all_entity_rows ... ok
+test empty_project_projects_empty_registry_and_idle_recorder ... ok
+test service_op_returns_recording_projection ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\scenario_gpui.rs (target\debug\deps\scenario_gpui-bb2fd75fe7e5541e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\screen_scenario.rs (target\debug\deps\screen_scenario-c09394e6927fd3cd.exe)
+
+running 7 tests
+test transport_play_invokes_and_inspector_table_is_read_only ... ok
+test fake_unrunnable_items_report_unsupported_not_run_not_pass ... ok
+test arrangement_select_row_and_tab_cycle_mint_view_state_actions ... ok
+test fake_target_resolution_and_stale_pins_cover_main_view ... ok
+test seek_gesture_and_projection_follow_the_shared_parity_scenario ... ok
+test fader_gesture_and_projection_follow_the_shared_parity_scenario ... ok
+test secondary_window_runs_the_same_scenarios ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\service_ops.rs (target\debug\deps\service_ops-dd40b20038fb8239.exe)
+
+running 13 tests
+test unknown_op_is_an_error_event_not_a_panic ... ok
+test sys_capabilities_lists_syn_ops ... ok
+test headless_and_gui_dispatch_agree_on_contract ... ok
+test quit_sets_shared_flag ... ok
+test project_save_without_store_fails ... ok
+test project_open_missing_bundle_fails ... ok
+test app_info_reports_logging_state_without_install ... ok
+test project_new_requires_path ... ok
+test workspace_mount_reports_shell_window ... ok
+test app_info_reports_revisions_backend_and_counters ... ok
+test transport_set_toggles_session_state ... ok
+test capabilities_lists_unavailable_areas_honestly ... ok
+test project_new_open_save_info_roundtrip ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\sf03_revision.rs (target\debug\deps\sf03_revision-9162324c60f54ddb.exe)
+
+running 4 tests
+test same_committed_revision_across_receipt_map_probe_and_view ... ok
+test save_is_persistence_evidence_not_activation ... ok
+test viewstate_and_semantic_noop_keep_revision_axes_honest ... ok
+test controller_bypass_surfaces_as_reconcile_drift_then_converges ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\sf03_session_engine.rs (target\debug\deps\sf03_session_engine-3d430e70349b2a30.exe)
+
+running 5 tests
+test session_apply_publishes_and_activates ... ok
+test semantic_noop_is_equivalent ... ok
+test missing_media_fails_build_and_keeps_last_good ... ok
+test failed_build_keeps_last_good ... ok
+test stale_revision_rejected_and_bypass_surfaces_as_drift ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\sf04_probe_compare_op.rs (target\debug\deps\sf04_probe_compare_op-f915907d3599ac3b.exe)
+
+running 6 tests
+test compare_fails_closed_without_engine ... ok
+test compare_aligned_two_monitored_points ... ok
+test compare_conditional_partial_coverage ... ok
+test compare_incomparable_resolution_failures ... ok
+test compare_incomparable_window_and_budget_failures ... ok
+test compare_is_read_only_and_never_drains ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\sf04_probe_wiring.rs (target\debug\deps\sf04_probe_wiring-c5f5bf578a19f106.exe)
+
+running 6 tests
+test probe_ops_fail_closed_without_engine ... ok
+test unresolvable_probe_point_reports_honest_state ... ok
+test probe_ops_leave_project_revision_undo_and_engine_untouched ... ok
+test probe_lifecycle_over_the_wire ... ok
+test ui_pump_drains_probe_updates_into_session_report ... ok
+test probe_dedup_same_point_two_targets_and_single_capture ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\sf05_probe_share.rs (target\debug\deps\sf05_probe_share-157ff0e031ad7240.exe)
+
+running 6 tests
+test subscriber_actions_fail_closed_without_engine ... ok
+test view_close_releases_only_own_lease ... ok
+test unsubscribe_releases_view_lease_and_fail_closed ... ok
+test two_views_share_one_probe_subscription ... ok
+test signal_flow_screen_shows_probe_subscriptions ... ok
+test capture_is_owner_only_and_retreats_to_session_on_close ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\sf05_signal_flow.rs (target\debug\deps\sf05_signal_flow-132e8a9d55bc0fe7.exe)
+
+running 10 tests
+test absent_engine_reports_unattached_and_unobserved ... ok
+test signal_flow_routing_rejects_bad_params_and_unknown_actions ... ok
+test signal_flow_inspection_modes_history_and_follow_source ... ok
+test visual_set_scope_local_and_role_filter_round_trip ... ok
+test view_op_projects_hierarchy_and_stale_revision_honestly ... ok
+test published_without_rt_observation_is_not_displayed_as_active ... ok
+test signal_flow_state_is_per_view_and_survives_snapshot_round_trip ... ok
+test visual_ops_leave_project_revision_undo_engine_and_receipt_untouched ... ok
+test signal_flow_routing_cancel_and_stale_revision_are_project_safe ... ok
+test signal_flow_routing_gesture_commits_one_atomic_undo ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\shell.rs (target\debug\deps\shell-3061de3f718ff014.exe)
+
+running 19 tests
+test rvf_command_without_origin_view_and_no_bound_view_is_rejected ... ok
+test rvf_command_malformed_gets_typed_error_not_silent_default ... ok
+test rvf_command_on_stale_window_after_reattach_is_rejected ... ok
+test rvf_command_without_origin_view_ambiguous_binding_is_rejected ... ok
+test destroyed_window_tears_down_its_views ... ok
+test action_intent_gets_typed_result_at_origin_window ... ok
+test attach_declaring_a_dead_window_leaves_the_view_ownerless ... ok
+test rvf_command_naming_an_unattached_view_is_rejected ... ok
+test close_request_approves_and_last_window_exits ... ok
+test app_quit_requests_close_not_silent_destroy ... ok
+test rvf_command_for_a_view_on_another_window_is_rejected ... ok
+test attach_owner_is_the_declared_window_not_the_arrival_channel ... ok
+test rvf_command_without_origin_view_resolves_the_bound_view ... ok
+test window_ready_delivers_boot_app_state ... ok
+test rvf_command_translates_and_receipt_lands_as_result ... ok
+test rvf_command_follows_reattach_to_the_new_owner_window ... ok
+test unrouted_events_broadcast_to_all_windows ... ok
+test view_attach_gesture_and_receipt_projection_flow ... ok
+test project_new_save_and_reload_roundtrip ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests\sv113_dock.rs (target\debug\deps\sv113_dock-a3b23077524449e3.exe)
+
+running 5 tests
+test dock_transfers_and_detach_reach_through_app_host ... ok
+test window_identity_is_monotonic_and_shell_host_stays_single_window ... ok
+test view_state_and_focus_are_independent_per_window ... ok
+test two_windows_share_project_and_survive_window_close ... ok
+test cross_window_origin_view_is_rejected ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\sv266_wiring.rs (target\debug\deps\sv266_wiring-435181e655b3e8a8.exe)
+
+running 12 tests
+test decode_view_command_admits_autx_params_and_rejects_domain_params ... ok
+test autx_visual_rejects_unknown_surface_and_foreign_view ... ok
+test autx_visual_close_drops_published_state ... ok
+test autx_action_rejects_unknown_target_action_and_malformed_params ... ok
+test autx_visual_opens_four_surfaces_with_published_states ... ok
+test autx_local_select_mutates_only_view_state ... ok
+test autx_request_without_catalog_rejects_typed ... ok
+test autx_run_select_and_cancel_reject_without_monitor_data ... ok
+test autx_catalog_push_enables_request_lowering ... ok
+test autx_macro_select_apply_lowers_per_step_requests ... ok
+test mounted_unknown_autx_action_rejects_on_originating_channel ... ok
+test mounted_palette_select_and_submit_dispatch_through_shell ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\sv643_jobs_ledger.rs (target\debug\deps\sv643_jobs_ledger-3bf8045242212691.exe)
+
+running 10 tests
+test generic_job_cancel_reaches_preview_job ... ok
+test library_imports_reports_manifest_and_ledger_job ... ok
+test generic_job_cancel_reaches_import_job ... ok
+test restart_restores_queued_preview_as_failed ... ok
+test foreign_project_sidecar_is_ignored_on_open ... ok
+test restart_restores_inflight_import_as_recoverable ... ok
+test project_new_overwrites_a_stale_sidecar ... ok
+test restart_restores_cancel_requested_as_cancelled ... ok
+test jobs_ledger_survives_project_save_and_reopen ... ok
+test restart_replays_pending_commit_to_committed_live ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests\sv646_pending_commit_replay.rs (target\debug\deps\sv646_pending_commit_replay-c8e4e7e8b0bb8c63.exe)
+
+running 5 tests
+test pending_commit_without_manifest_degrades_recoverable ... ok
+test pending_commit_cancel_requested_still_replays ... ok
+test pending_commit_stale_revision_lands_typed_terminal ... ok
+test pending_commit_unreadable_manifest_degrades_recoverable ... ok
+test pending_commit_replays_to_committed_live_after_reopen ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests\sv_os_headless.rs (target\debug\deps\sv_os_headless-4b9764c200052b55.exe)
+
+running 3 tests
+test capability_classification_keeps_l2_l3_out_of_headless_requirements ... ok
+test headless_matrix_projects_fake_and_gpui_simulated_columns ... ok
+test fake_lane_executes_sv_os_catalog_cases ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests\svscript04_script_editor.rs (target\debug\deps\svscript04_script_editor-71991e6731c2c00c.exe)
+
+running 8 tests
+test decode_maps_intents_to_commands ... ok
+test decode_rejects_malformed_params ... ok
+test empty_state_has_no_analyze_button ... ok
+test decode_rejects_unknown_targets_and_actions ... ok
+test populated_state_projects_status_source_and_tables ... ok
+test api_table_only_when_shown ... ok
+test view_state_selection_reaches_detail_labels ... ok
+test mount_script_editor_view_succeeds_for_both_states ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\svt_product_e2e.rs (target\debug\deps\svt_product_e2e-27a835f7a83acb17.exe)
+
+running 10 tests
+test svt06b_meter_push_frame_snapshot ... ok
+test svt03_fader_gesture_receipt_and_observed_projection ... ok
+test svt06_viz_bounded_query_stale_and_honest_empty ... ok
+test svt04_undo_redo_roundtrip_and_rejected_truth ... ok
+test svt09_detach_drops_commands_and_reattach_restores_with_new_generation ... ok
+test svt07_two_window_ownership_close_and_project_lifetime ... ok
+test svt05_transport_receipt_projection_phase_progression ... ok
+test svt02_row_selection_drives_inspector_focus ... ok
+test svt01_project_new_keeps_view_composition_and_session_truth ... ok
+test svt08_save_reload_matches_independent_bundle_oracle ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests\svt_product_e2e_gpui.rs (target\debug\deps\svt_product_e2e_gpui-5410e64c46b73854.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\theme_parity.rs (target\debug\deps\theme_parity-aed84c3e94953608.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim01_ppqn_app.rs (target\debug\deps\tim01_ppqn_app-04ae5858b7422cfc.exe)
+
+running 11 tests
+test set_ppqn_rejects_while_record_enabled ... ok
+test set_ppqn_round_policy_applies_declared_rounding ... ok
+test set_ppqn_rejects_stale_old_ppqn ... ok
+test set_ppqn_applies_and_projects_ppqn ... ok
+test set_ppqn_rejects_stale_expected_revision ... ok
+test set_ppqn_rejects_while_transport_playing ... ok
+test set_ppqn_requires_explicit_policy ... ok
+test set_ppqn_undo_redo_round_trip ... ok
+test set_ppqn_rejects_while_recording_transaction_open ... ok
+test set_ppqn_rejects_out_of_range_ppqn ... ok
+test set_ppqn_survives_save_reload ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\tim01_ppqn_preview.rs (target\debug\deps\tim01_ppqn_preview-b06376b54bc08de9.exe)
+
+running 6 tests
+test preview_ppqn_reports_without_mutating ... ok
+test preview_ppqn_ignores_session_gates ... ok
+test preview_ppqn_reports_inexact_sites_and_policy_feasibility ... ok
+test preview_ppqn_rejects_malformed_params ... ok
+test project_new_rejects_bad_ppqn ... ok
+test project_new_ppqn_defaults_and_explicit_selection ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests\tim01_ppqn_ui.rs (target\debug\deps\tim01_ppqn_ui-5efeef13787e5330.exe)
+
+running 11 tests
+test snap_grid_policy_preserves_explicit_tick_quanta ... ok
+test project_tab_renders_ppqn_surface ... ok
+test read_model_rejects_mismatched_and_stale_previews ... ok
+test read_model_projects_current_range_and_preview ... ok
+test select_rejects_out_of_range_values ... ok
+test cancel_drops_pending_without_mutating ... ok
+test confirm_applies_set_ppqn_and_clears_gesture ... ok
+test app_gesture_projects_preview_into_screen_state ... ok
+test undo_restores_previous_ppqn_and_resyncs_gesture ... ok
+test preview_and_spec_report_snap_grid_policy ... ok
+test confirm_requires_applicable_preview ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim01_ppqn_widget.rs (target\debug\deps\tim01_ppqn_widget-dd6aa1c1c38470e3.exe)
+
+running 10 tests
+test project_tab_mounts_ppqn_widgets ... ok
+test widget_cancel_discards_pending ... ok
+test widget_select_runs_preview_and_updates_surface ... ok
+test widget_forged_select_params_rejected ... ok
+test widget_unknown_action_and_target_boundary ... ok
+test widget_confirm_and_cancel_without_pending ... ok
+test widget_confirm_applies_after_select ... ok
+test op_path_selects_arbitrary_value ... ok
+test widget_reselect_replaces_candidate ... ok
+test widget_exact_preview_rejection_blocks_confirm ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\tim02_midi_delivery.rs (target\debug\deps\tim02_midi_delivery-7a7a9d2776fdf525.exe)
+
+running 4 tests
+test staging_without_control_surface_reports_failed ... ok
+test clip_without_instrument_reports_unresolved ... ok
+test compiled_clip_stages_on_chain_head_instrument ... ok
+test sibling_clips_merge_into_one_staged_set ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\tim02_smf_app.rs (target\debug\deps\tim02_smf_app-870256cda07116ff.exe)
+
+running 14 tests
+test capabilities_reports_midi_section ... ok
+test sys_capabilities_lists_smf_ops ... ok
+test import_smf_rejects_stale_expected_revision ... ok
+test import_smf_typed_errors ... ok
+test import_smf_mints_source_and_reports_summary ... ok
+test import_smf_rejects_while_transport_playing ... ok
+test export_smf_typed_errors ... ok
+test export_smf_is_read_only ... ok
+test import_smf_undo_redo_round_trip ... ok
+test midi_clip_compiles_to_engine_frame_evidence ... ok
+test muted_midi_clip_produces_no_evidence ... ok
+test export_smf_writes_file_and_reports_conversion ... ok
+test import_export_reimport_round_trip ... ok
+test import_smf_survives_save_reload ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests\tim03_l1_frame_boundary_matrix.rs (target\debug\deps\tim03_l1_frame_boundary_matrix-8e81520ded2f1287.exe)
+
+running 2 tests
+mbx[progress]: 3m elapsed; 0 hits, 63 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+test vst3_frame_boundary_matrix ... ok
+test clap_frame_boundary_matrix ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.28s
+
+     Running tests\tim03_l1_instrument_transport.rs (target\debug\deps\tim03_l1_instrument_transport-55b239cae48ed983.exe)
+
+running 2 tests
+test vst3_instrument_transport_clicks ... ok
+test clap_instrument_transport_clicks ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+
+     Running tests\tim03_l1_process_oracle.rs (target\debug\deps\tim03_l1_process_oracle-3d51b105ae4ee9fe.exe)
+
+running 2 tests
+test tim03_l1_vst3_production_wiring_and_limited_process_oracle ... ok
+test tim03_l1_clap_production_wiring_and_limited_process_oracle ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+     Running tests\tim03_l1_production_musical_transport.rs (target\debug\deps\tim03_l1_production_musical_transport-bf135cc72252c561.exe)
+
+running 4 tests
+test vst3_production_tempo_undo_redo ... ok
+test clap_production_tempo_undo_redo ... ok
+test vst3_production_musical_transport ... ok
+test clap_production_musical_transport ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+
+     Running tests\tim03_l1_transport_application.rs (target\debug\deps\tim03_l1_transport_application-221b4f3a61fd9f00.exe)
+
+running 2 tests
+test tim03_l1_vst3_transport_application ... ok
+test tim03_l1_clap_transport_application ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests\tim03_real_abi_process_oracle.rs (target\debug\deps\tim03_real_abi_process_oracle-1268b5afb1d66314.exe)
+
+running 2 tests
+test tim03_real_abi_vst3_discovery_lifecycle_and_fail_closed_boundary ... ok
+test tim03_real_abi_clap_discovery_lifecycle_and_fail_closed_boundary ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\two_window.rs (target\debug\deps\two_window-f751b96c7ee19947.exe)
+
+running 8 tests
+test secondary_spec_is_a_transport_deck ... ok
+test secondary_host_mints_view_2_commands ... ok
+test two_windows_attach_their_own_views ... ok
+test both_windows_share_one_project_session ... ok
+test foreign_window_commands_are_rejected ... ok
+test owning_window_commands_still_apply_after_foreign_rejection ... ok
+test secondary_window_commands_apply_on_their_own_channel ... ok
+test both_views_display_the_same_transport_truth ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\ui_ops.rs (target\debug\deps\ui_ops-49cba4c9d487389f.exe)
+
+running 13 tests
+test detach_cancels_gesture_but_not_transport ... ok
+test subscribe_unknown_target_fails_honestly ... ok
+test two_views_same_target_both_observe ... ok
+test project_undo_redo_ops_dispatch_and_report_empty_history ... ok
+test control_targets_lists_the_bootstrap_fader ... ok
+test unknown_and_detached_dispatch_are_dropped_not_faked ... ok
+test view_attach_detach_close_lifecycle ... ok
+test transport_action_receipt_and_projection_flow ... ok
+test detach_view_stops_surface_and_binding_truth ... ok
+test viz_waveform_query_is_bounded ... ok
+test viz_no_source_is_honest_not_faked ... ok
+test viz_meter_push_frame_snapshot_and_notify ... ok
+test project_undo_redo_round_trip_updates_arrangement_rows ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\uic5_app.rs (target\debug\deps\uic5_app-14b3d3d927a87bd4.exe)
+
+running 9 tests
+test control_edge_preview_cancel_is_free ... ok
+test relation_rejects_malformed_entity_and_action ... ok
+test recording_status_pending_actions_and_abort ... ok
+test control_edge_commit_applies_one_assignment ... ok
+test recording_action_rejects_unknown_and_wrong_id ... ok
+test control_edge_commit_stale_revision_drops_gesture ... ok
+test recording_conflict_rebase_retry_applied ... ok
+test relation_inspect_never_touches_edit_or_undo ... ok
+test relation_explore_bidirectional_and_back_to_origin ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\vcs04_history.rs (target\debug\deps\vcs04_history-0ababdb39e08907d.exe)
+
+running 9 tests
+test open_close_lifecycle_is_kind_scoped ... ok
+test foreign_repository_and_bad_params_fail_honestly ... ok
+test history_projection_reports_backend_and_rows ... ok
+test no_backend_reports_status_and_refuses_history ... ok
+test view_close_drops_vcs_state_and_ops_stay_read_only ... ok
+test screen_spec_is_a_read_only_projection ... ok
+test staged_and_saved_endpoints_report_honestly ... ok
+test live_pin_reports_stale_after_revision_advances ... ok
+test ab_pin_produces_diff_and_merge_parent_choice ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\vcs04_mount_gpui.rs (target\debug\deps\vcs04_mount_gpui-b11e31fc9fd2e0f9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\vcs04_native_mount.rs (target\debug\deps\vcs04_native_mount-1ea6bb62d8a257a2.exe)
+
+running 7 tests
+test view_shaped_id_without_registration_is_refused_not_legacy_attached ... ok
+test dynamically_opened_vcs_view_is_a_dock_domain_view ... ok
+test native_shell_runs_new_window_dock_saga_for_vcs_view ... ok
+test native_shell_mounts_pools_and_closes_dynamically_opened_vcs_view ... ok
+test published_state_tracks_ops_and_drops_closed_views ... ok
+test view_navigation_and_close_leave_project_authority_untouched ... ok
+test vcs_screen_cell_publishes_and_mount_vcs_history_view_builds_read_only_host ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\vcs06_ui_matrix.rs (target\debug\deps\vcs06_ui_matrix-bd24a4916dca13f3.exe)
+
+running 4 tests
+test staged_pin_freshness_is_unknown_without_backend ... ok
+test absent_asset_bytes_mark_degraded_partial_with_issue_rows ... ok
+test cross_project_committed_endpoints_report_unknown_not_equal ... ok
+test staged_pin_freshness_is_unknown_when_index_probe_fails ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\vcs_backend_wiring.rs (target\debug\deps\vcs_backend_wiring-628183c9763d2684.exe)
+
+running 2 tests
+test project_new_binds_real_backend_and_serves_committed_diff ... ok
+test backend_rebinds_per_root_and_clears_on_non_repo ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.96s
+
+     Running tests\view_mount.rs (target\debug\deps\view_mount-5ac665ded6956c68.exe)
+
+running 27 tests
+test empty_project_keeps_the_default_seek_range ... ok
+test main_spec_carries_waveform_and_meter_with_status_labels ... ok
+test main_spec_carries_arrangement_table_and_undo_redo_buttons ... ok
+test main_spec_carries_transport_buttons_status_and_inspector_table ... ok
+test mixer_strip_targets_resolve_by_role_and_owner ... ok
+test mount_attach_subscribe_and_projection_reaches_host ... ok
+test inspector_table_shows_the_subscribed_targets_breakdown ... ok
+test mixer_strip_toggles_mount_and_subscribe_after_attach ... ok
+test reattach_bumps_generation_and_fresh_host_absorbs_stale_namespace ... ok
+test destroying_the_view_window_runs_view_teardown ... ok
+test seek_display_follows_the_authoritative_projection_in_seconds ... ok
+test mixer_fader_cancel_restores_the_authoritative_display ... ok
+test tab_press_switches_the_displayed_tab_through_the_shell ... ok
+test cancel_gesture_reports_receipt_without_commit ... ok
+test gesture_begin_preview_commit_lands_applied_receipt_on_host ... ok
+test mixer_fader_display_and_gesture_follow_the_domain_projection ... ok
+test mixer_mute_toggle_atomic_set_lands_applied_and_returns ... ok
+test seek_range_follows_project_length_in_place ... ok
+test undo_redo_buttons_dispatch_project_ops_through_the_mounted_view ... ok
+test transport_buttons_play_and_stop_through_the_command_path ... ok
+test mixer_solo_toggle_gesture_preview_commit_and_cancel ... ok
+test view_select_rejects_malformed_and_out_of_range_params ... ok
+test arrangement_row_selection_updates_selection_inspector_and_view_list ... ok
+test viz_surfaces_bind_and_project_fixture_data ... ok
+test arrangement_rows_follow_project_open_and_state_push ... ok
+test save_and_reload_preserve_the_mounted_view ... ok
+test project_buttons_save_and_reload_through_the_mounted_view ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+   Doc-tests synvelis_app
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+mbx[cache]: 0 hits, 63 misses, 1 bypassed; 0 B downloaded, 0 B uploaded, 20.5 GiB stored locally
+mbx[savings]: has quietly disposed of 18.3 TiB logical of build leftovers. nobody saw anything.

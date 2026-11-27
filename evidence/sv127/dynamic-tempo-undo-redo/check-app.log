@@ -1,0 +1,14 @@
+[check] $ cargo check --locked --all-targets -p synvelis-app
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-project)
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-app)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-recording)
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-library)
+    Checking synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-gateway)
+    Checking synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-script)
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-player)
+    Checking synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-render)
+    Checking synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-workspace)
+mbx[progress]: 15s elapsed; 6 hits, 3 misses, 0 bypassed, 0 not looked up; ~24.16s compiler work saved
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.51s
+mbx[cache]: 6 hits, 71 misses; 0 B downloaded, 0 B uploaded, 15.1 MiB stored locally
+mbx[savings]: 631.4 GiB of outputs materialized without a copy. the copy machine stays off.
