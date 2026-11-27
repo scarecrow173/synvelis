@@ -51,6 +51,8 @@ pub const VST3_RUNNER_STEM: &str = "synvelis-plugin-test-vst3-l1-runner";
 pub const CLAP_RUNNER_STEM: &str = "synvelis-plugin-test-clap-l1-runner";
 /// Gain fixture plugin name.
 pub const TEST_GAIN: &str = "test_gain";
+/// Instrument fixture plugin name.
+pub const TEST_INSTRUMENT: &str = "test_instrument";
 /// Harness sample rate.
 pub const SAMPLE_RATE: u32 = 48_000;
 /// Harness block size.
@@ -212,6 +214,33 @@ pub fn stage_fixture_sibling(probe: &FixtureProbe, runner: &Path) -> PathBuf {
         )
     });
     staged
+}
+
+pub fn descriptor_named(probe: &FixtureProbe, name: &str) -> PluginDescriptor {
+    probe
+        .descriptors
+        .iter()
+        .find(|descriptor| descriptor.name == name)
+        .copied()
+        .unwrap_or_else(|| panic!("{} fixture does not expose {name}", probe.format))
+}
+
+pub fn file_facts(path: &Path) -> (u64, String) {
+    (fs::metadata(path).unwrap().len(), sha256_hex(path).unwrap())
+}
+
+pub fn ruviform_revision() -> String {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("Cargo.lock");
+    let text = fs::read_to_string(&root).expect("workspace Cargo.lock");
+    text.lines()
+        .find_map(|line| {
+            line.strip_prefix("source = \"git+https://github.com/scarecrow173/ruviform.git#")
+                .and_then(|rest| rest.strip_suffix('"'))
+                .map(str::to_owned)
+        })
+        .expect("ruviform git revision in Cargo.lock")
 }
 
 pub fn gain_param() -> ParamInfo {
