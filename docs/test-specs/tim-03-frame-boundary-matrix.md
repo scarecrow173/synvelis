@@ -45,7 +45,7 @@ relations:
 
 ## Headless simultaneous ordering matrix
 
-`tim03_req_simultaneous_loop_seek_tempo_param` は W=100/128/256 × valid B=0/1/100/last を fresh wired session/nodeで実行する。300-tick loopに対して head初期位置を `300-B` とし、natural loop wrap・target Seek・tempo-map付きPlanInstallを同じ boundaryへ収束させる。target Seekは `307` で post-seek loop collapse後 position 7 となり、wrap collapse位置0と区別できる。exact process lengthsは B=0で `[W]`、interior Bで `[B,W-B]`、3つのsame-position param eventsは post-seek position 7から process-start-relative offsetで exactly once deliveryし、source_sequence順とsame-param last-winsを固定する。plan-owned musical transportは tempo map revision 1と明示PPQN 480を使い、target call startで bpm_milli=120000/ppqn=480を観測する。W=100/B=100は valid range外なので対象外であり、clampしない。
+`tim03_req_simultaneous_loop_seek_tempo_param` は W=100/128/256 × valid B=0/1/100/last を fresh wired session/nodeで実行する。300-tick loopに対して head初期位置を `300-B` とし、natural loop wrap・target Seek・tempo-map付きPlanInstallを同じ boundaryへ収束させる。target Seekは `307` で post-seek loop collapse後 position 7 となり、wrap collapse位置0と区別できる。exact process lengthsは B=0で `[W]`、interior Bで `[B,W-B]`、3つのsame-position param eventsは folded post-seek position 7に置き、target boundary callで process-start-relative frame offset 0としてdeliveryする。window全体の全process callを走査し、3件がtarget callのみでexactly once、source_sequence順、same-param last-winsであることを固定する。plan-owned musical transportは tempo map revision 1と明示PPQN 480を使い、target call startで bpm_milli=120000/ppqn=480を観測する。W=100/B=100は valid range外なので対象外であり、clampしない。
 
 ## Production real ABI oracle
 

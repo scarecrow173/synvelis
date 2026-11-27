@@ -41,7 +41,7 @@ OS/Arch: Windows / x86_64
 | production arbitrary interior seek/tempo/param | unsupported-by-current-production-seam | unsupported-by-current-production-seam | unsupported-by-current-production-seam | Unsupported（fake passへ昇格しない） |
 | production W100/B100 | invalid-out-of-window honest negative | N/A（B100はvalid interior） | N/A（B100はvalid interior） | Negative pass |
 
-headless negative regression（min/max illegality、deferral/coalescing、offline exact fail-closed、stale generation zero delivery）は既存 test を弱めず、`mise run test synvelis-player` で実行された。simultaneous combined caseは既存 256-frame representative testが seek + natural loop wrap + tempo-plan install + param eventの exactly-once / tie rule / post-seek loop collapseを固定し、本sliceの matrix rowsはその ordering semanticsを consumer evidenceとして参照する。
+headless negative regression（min/max illegality、deferral/coalescing、offline exact fail-closed、stale generation zero delivery）は既存 test を弱めず、`mise run test synvelis-player` で実行された。simultaneous combined caseは wired-session matrix自体が valid W×B cellsで seek + natural loop wrap + tempo-plan install + boundary/frame-0 param eventを固定する。window全体を走査して3件のparam hitsがtarget boundary callのみでexactly-once、process-start-relative frame offset 0、source-sequence順、same-param last-winsであることを確認する。
 
 ## Production real ABI primary/secondary/NotRun
 
@@ -82,9 +82,16 @@ Note: `canonical-verify3.log` preserves the first full canonical batch. During r
 
 ## Completion-gate fix and review evidence
 
-2026-11-27 の needs-fix gateに対し、wired-session simultaneous matrixを valid W×B matrixへ拡張した。target Seekは post-collapse position 7を使い、natural loop wrap position 0と区別する。exact process lengths、single coalesced boundary、tempo-map付きPlanInstall、3つのsame-position param eventsのsource-sequence順/last-wins、exactly-once/process-start-relative frame offset、call-start musical snapshotを固定した。`#[allow(clippy::type_complexity)]` は削除し、`PlayingSurface` type aliasへ分解した。
+2026-11-27/28 の needs-fix gateに対し、wired-session simultaneous matrixを valid W×B matrixへ拡張した。target Seekは post-collapse position 7を使い、natural loop wrap position 0と区別する。exact process lengths、single coalesced boundary、tempo-map付きPlanInstall、3つのsame-position param eventsのsource-sequence順/last-wins、window-wide exactly-once/process-start-relative frame offset 0、call-start musical snapshotを固定した。`#[allow(clippy::type_complexity)]` は削除し、`PlayingSurface` type aliasへ分解した。
 
-review-protocol-equivalent evidenceは `frame-boundary-matrix-review.md` にある。reviewer/validator split、reviewer verdict blockers 0、minor caveat disposition、4つの gate blocker dispositionを記録した。最終検証は `gate-fix4-canonical.log` を使う。初回 `test synvelis-app` は mbx gc後の L1 runner artifact欠落で failedとなったが、dedicated laneがrunnerを再構築した後の final targeted rerunを canonical verdictとする。これは source/test failureではなく test artifact lifecycleの順序依存として分類する。
+review-protocol-equivalent evidenceは `frame-boundary-matrix-review.md` にある。reviewer/validator split、reviewer verdict blockers 0、minor caveat disposition、4つの gate blocker dispositionを記録した。最終検証は `re-gate-final-canonical.log` を使う。前回batchでは `test synvelis-app` が mbx gc後の L1 runner artifact欠落で一度failedとなったが、runner rebuild後にexit 0となった。re-gate final batchの実測exitは `re-gate-final-results.tsv` を正本とし、artifact lifecycle failureをPassへ転記しない。
+
+## Runtime Verification / Formal Verification verdicts
+
+| verification class | verdict | basis |
+| --- | --- | --- |
+| Runtime Verification | Pass for the executable scope actually run | `re-gate-final-results.tsv` に記録した player check/lint/test、app check/lint/test、dedicated TIM-03 matrix lane、dynamic musical transport、transport application、RT、headless-deps、prek。`fmt-check` は Windows path-length依存 `os error 206` の infrastructure failureであり、Passへ転記しない。 |
+| Formal Verification | NotApplicable / NotRun | 本sliceは executable headless/real-ABI matrix evidenceを追加するものであり、Kani/Lean/model checking/proof等の formal artifactを追加しない。formal passへ計上しない。 |
 
 ## Artifact/negative evidence
 
@@ -131,7 +138,8 @@ Negative/constraint evidence:
 - `frame-boundary-matrix/final-app-and-dedicated.log` — final post-review app lint, `test synvelis-app`, and dedicated matrix lane rerun used for JSONL extraction
 - `frame-boundary-matrix/prek-final.log` — final prek run after evidence/doc updates
 - `frame-boundary-matrix/gate-fix-final-targeted.log` / `.tsv` — intermediate targeted rerun after runner rebuild
-- `frame-boundary-matrix/gate-fix4-canonical.log` / `.tsv` — final completion-gate canonical batch after combined param-order/musical-transport strengthening
+- `frame-boundary-matrix/gate-fix4-canonical.log` / `.tsv` — prior completion-gate canonical batch after combined param-order/musical-transport strengthening
+- `frame-boundary-matrix/re-gate-final-canonical.log` / `.tsv` — final re-gate canonical batch after simultaneous frame-offset-0 correction
 - `frame-boundary-matrix-review.md` — reviewer/validator split and blocker disposition
 - `frame-boundary-matrix/lint-player-rerun.log` — final player lint evidence
 - `frame-boundary-matrix/lint-app-rerun.log` — final app lint evidence

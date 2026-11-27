@@ -757,6 +757,7 @@ struct CombinedRowInput {
     musical_ppqn: u16,
     frame_offset: u32,
     abs: i64,
+    window_param_hit_count: usize,
     lengths: Vec<u32>,
 }
 
@@ -764,7 +765,7 @@ fn combined_row(input: &CombinedRowInput) -> serde_json::Value {
     serde_json::json!({
         "window_frames": input.window,
         "requested_boundary": input.boundary,
-        "boundary_kinds": ["LoopWrap","Seek","PlanInstall"],
+        "boundary_kinds": ["LoopWrap","Seek","PlanInstall","Param"],
         "scenario": "combined-loop-seek-tempo-plan-param",
         "combined_case": true,
         "simultaneous_command_order": ["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],
@@ -774,12 +775,66 @@ fn combined_row(input: &CombinedRowInput) -> serde_json::Value {
         "seek_target_ticks": 307,
         "post_seek_loop_position": input.target_position,
         "exact_process_lengths": input.lengths,
-        "param_positions": [{"position_ticks": input.abs, "post_seek_base_position": 7, "process_start_relative_frame_offset": input.frame_offset, "absolute_position": input.abs, "exactly_once": true}],
+        "param_positions": [{"position_ticks": input.abs, "post_seek_base_position": 7, "process_start_relative_frame_offset": input.frame_offset, "absolute_position": input.abs, "simultaneous_with_boundary": true, "exactly_once_scope": "whole-window", "exactly_once": true}],
+        "observed_window_param_hit_count": input.window_param_hit_count,
         "tempo_plan": {"tempo_map_revision": 1, "param_source_sequences": [3,1,2], "expected_delivery_order": [[9,0.2],[7,0.25],[7,0.75]], "same_param_last_wins": {"param_id":7,"final_value":0.75}, "musical_ppqn": 480, "observed_call_start_bpm_milli": input.musical_bpm_milli, "observed_call_start_ppqn": input.musical_ppqn, "tempo_is_not_transport_command": true},
         "frame_offset_meaning": "process-start-relative EventList.frame_offset",
         "fresh_instance": true,
         "verdict": "pass"
     })
+}
+
+fn combined_cell_input(
+    log: &CallLog,
+    window: u32,
+    boundary: u32,
+    loop_len: i64,
+    initial_pos: i64,
+    param_pos: i64,
+    lengths: Vec<u32>,
+) -> CombinedRowInput {
+    let target = log.hit(usize::from(boundary != 0));
+    assert_eq!(
+        target.position, 7,
+        "post-seek loop collapse W{window}/B{boundary}"
+    );
+    assert_eq!(
+        (target.musical_bpm_milli, target.musical_ppqn),
+        (120_000, 480)
+    );
+    let target_params = target.param_hits();
+    let all_params = log.all_params();
+    assert_eq!(
+        all_params.len(),
+        3,
+        "window-wide param exactly-once W{window}/B{boundary}"
+    );
+    assert_eq!(all_params.as_slice(), target_params);
+    assert!(
+        all_params
+            .iter()
+            .all(|param| param.frame_offset == 0 && param.abs == param_pos)
+    );
+    assert_eq!(
+        all_params
+            .iter()
+            .map(|param| (param.param_id, param.value))
+            .collect::<Vec<_>>(),
+        vec![(9, 0.2), (7, 0.25), (7, 0.75)]
+    );
+    CombinedRowInput {
+        window,
+        boundary,
+        loop_len,
+        initial_pos,
+        target_position: target.position,
+        musical_bpm_milli: target.musical_bpm_milli,
+        musical_ppqn: target.musical_ppqn,
+        frame_offset: all_params[0].frame_offset,
+        abs: all_params[0].abs,
+        window_param_hit_count: all_params.len(),
+        lengths,
+    }
 }
 
 #[test]
@@ -804,8 +859,7 @@ fn tim03_req_simultaneous_loop_seek_tempo_param() {
             let current = prov(1, proc, 10, 20);
             let s = session(&control, c, ExecutionMode::Realtime, None, 4096, current);
 
-            // Head setup places playback `boundary` frames before the end of a
-            // 300-tick loop, making the natural wrap converge with Seek/PlanInstall.
+            // Head setup makes the natural 300-tick loop wrap converge with Seek/PlanInstall.
             let loop_len = 300_i64;
             let initial_pos = loop_len - i64::from(boundary);
             let commands = [
@@ -820,9 +874,8 @@ fn tim03_req_simultaneous_loop_seek_tempo_param() {
             let expected_boundaries = boundary_offsets(boundary);
             assert_eq!(plan.boundaries, expected_boundaries);
 
-            let remaining = window - boundary;
-            let param_offset = i64::from(if remaining > 20 { 20 } else { remaining - 1 });
-            let param_pos = 7 + param_offset;
+            // Folded post-seek position 7 makes the boundary-call event simultaneous frame offset 0.
+            let param_pos = 7_i64;
             let install = simultaneous_tempo_plan(&mut control, param_pos);
             let evaluated = s
                 .stage_plan(
@@ -841,42 +894,15 @@ fn tim03_req_simultaneous_loop_seek_tempo_param() {
             let lengths: Vec<u32> = (0..log.len()).map(|i| log.hit(i).frames).collect();
             let expected_lengths = split_lengths(window, boundary);
             assert_eq!(lengths, expected_lengths, "W{window}/B{boundary}");
-            let target = log.hit(usize::from(boundary != 0));
-            assert_eq!(
-                target.position, 7,
-                "post-seek loop collapse W{window}/B{boundary}"
-            );
-            assert_eq!(
-                (target.musical_bpm_milli, target.musical_ppqn),
-                (120_000, 480)
-            );
-            let params = target.param_hits();
-            assert_eq!(
-                params.len(),
-                3,
-                "param events exactly once W{window}/B{boundary}"
-            );
-            assert_eq!(params[0].frame_offset, u32::try_from(param_offset).unwrap());
-            assert!(params.iter().all(|param| param.abs == param_pos));
-            assert_eq!(
-                params
-                    .iter()
-                    .map(|param| (param.param_id, param.value))
-                    .collect::<Vec<_>>(),
-                vec![(9, 0.2), (7, 0.25), (7, 0.75)]
-            );
-            rows.push(combined_row(&CombinedRowInput {
+            rows.push(combined_row(&combined_cell_input(
+                &log,
                 window,
                 boundary,
                 loop_len,
                 initial_pos,
-                target_position: target.position,
-                musical_bpm_milli: target.musical_bpm_milli,
-                musical_ppqn: target.musical_ppqn,
-                frame_offset: params[0].frame_offset,
-                abs: params[0].abs,
+                param_pos,
                 lengths,
-            }));
+            )));
         }
     }
     println!(
