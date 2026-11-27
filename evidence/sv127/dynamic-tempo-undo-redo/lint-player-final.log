@@ -1,0 +1,5 @@
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-tempo-undo-redo\crates\synvelis-player)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.77s
+mbx[cache]: 0 hits, 24 misses; 0 B downloaded, 0 B uploaded, 321.8 KiB stored locally
+mbx[savings]: 295613 cache hits and counting. rustc thinks it has been busy.

@@ -1,0 +1,3 @@
+[check-ruviform-rev] $ node tools/check-ruviform-rev.mjs
+check-ruviform-rev: ui vendor REV 20a24a66ee90f4d462224391e78c10c93f4f31ba != lockfile resolved 511e1a7944c35797942ba065c092b9263067c48a — re-sync the vendor tree (`mise run sync-ui-deps`)
+[check-ruviform-rev] ERROR task failed

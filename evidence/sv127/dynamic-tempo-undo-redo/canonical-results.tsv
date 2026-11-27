@@ -1,0 +1,27 @@
+command	os	exit	classification	log
+mise run check-ruviform-rev	Windows x86_64	1	setup-mismatch	check-ruviform-rev-initial.log
+mise run sync-ui-deps	Windows x86_64	0	authorized-setup	sync-ui-deps.log
+mise run check-ruviform-rev	Windows x86_64	0	canonical	check-ruviform-rev.log
+mise run fmt-check	Windows x86_64	1	canonical	fmt-check.log
+mise exec -- cargo fmt --package synvelis-player --package synvelis-app -- --check	Windows x86_64	0	auxiliary	rustfmt-package-aux.log
+mise run test-tim03-dynamic-musical-transport	Windows x86_64	0	development	dynamic-first.log
+mise run check-headless-deps	Windows x86_64	0	canonical	check-headless-deps.log
+mise run lint synvelis-player	Windows x86_64	101	canonical	lint-player.log
+mise run lint synvelis-app	Windows x86_64	0	canonical	lint-app.log
+mise run check synvelis-player	Windows x86_64	0	canonical	check-player.log
+mise run check synvelis-app	Windows x86_64	0	canonical	check-app.log
+mise run test-tim03-dynamic-musical-transport	Windows x86_64	0	canonical	dynamic-final.log
+mise run test-tim03-dynamic-musical-transport	Windows x86_64	0	canonical	dynamic-distinct-fixtures.log
+mise run test synvelis-player	Windows x86_64	0	canonical	test-player.log
+mise run lint synvelis-player	Windows x86_64	0	canonical	lint-player-final.log
+mise run test-tim03-frame-boundary-matrix	Windows x86_64	0	canonical	test-frame-boundary.log
+mise run test-tim03-transport	Windows x86_64	0	canonical	test-transport.log
+mise run fmt-check	Windows x86_64	1	canonical	fmt-check-final.log
+mise exec -- cargo fmt --package synvelis-player --package synvelis-app -- --check	Windows x86_64	0	auxiliary	rustfmt-package-final.log
+mise exec -- node evidence/sv127/dynamic-tempo-undo-redo/sync-jsonl.mjs --check d6368e0fbc97eb6284d6f198e8d954462ddf403f	Windows x86_64	0	auxiliary	jsonl-check.log
+mise run test synvelis-app	Windows x86_64	0	canonical	test-app.log
+RUST_TEST_NOCAPTURE=1 mise run test synvelis-player --test tim03_musical_transport_plan	Windows x86_64	0	development	player-targeted.log
+mise exec -- prek run --all-files	Windows x86_64	1	preflight	prek-preflight.log
+mise run test-rt	Windows x86_64	0	canonical	test-rt.log
+mise exec -- prek run --all-files	Windows x86_64	0	canonical	prek-final.log
+mise run test-tim03-dynamic-musical-transport -- production_tempo_undo_redo	Windows 11 Pro 26H2 build 26300.9974 x86_64	0	canonical	dynamic-child-provenance.log

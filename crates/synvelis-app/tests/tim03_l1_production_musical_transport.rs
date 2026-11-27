@@ -11,16 +11,20 @@ use std::env;
 use std::path::PathBuf;
 
 use common::tim03_l1::*;
-use ruviform_media_core::{InBlockTransportSupport, ScheduleBudget};
+use ruviform_media_core::{
+    AppliedReceipt, ApplyStatus, InBlockTransportSupport, ScheduleBudget, TransportSpan,
+    TransportStatus,
+};
 use ruviform_plugin_core::EventKind;
 use ruviform_plugin_host::OutOfProcessSpec;
 use ruviform_ui::BackendReport;
 use serde_json::{Value, json};
 use synvelis_app::composition::compose_routing_engine_with_out_of_process_and_boundaries;
-use synvelis_app::engine::TransportApplicationCommand;
-use synvelis_app::{ProductOutOfProcessPlugin, SynvelisApp};
+use synvelis_app::engine::{TransportApplicationCommand, TransportApplicationReport};
+use synvelis_app::{ProductOutOfProcessPlugin, SessionRoutingEngine, SynvelisApp};
 use synvelis_player::{BoundaryDeclaration, TimingPrecision, compile_project_musical_transport};
-use synvelis_project::{BeatPoint, PpqnConversionPolicy, ProcessorId, ProjectOp};
+use synvelis_project::tempo::TempoEventDto;
+use synvelis_project::{BeatPoint, PpqnConversionPolicy, ProcessorId, Project, ProjectOp};
 
 const PROJECT_PPQN: u32 = 480;
 const ADAPTER_PPQN: u32 = 960;
@@ -90,6 +94,9 @@ fn apply_transport(
 }
 
 fn click_positions(report: &synvelis_player::driver::PlayReport) -> Vec<usize> {
+    let frames = usize::try_from(report.frames).unwrap();
+    assert_eq!(report.pcm.len(), 2);
+    assert!(report.pcm.iter().all(|channel| channel.len() == frames));
     let mut positions = Vec::new();
     for (index, (left, right)) in report.pcm[0].iter().zip(&report.pcm[1]).enumerate() {
         assert_eq!(
@@ -342,24 +349,8 @@ fn dynamic_edit_case(
     // window: the refresh must already be RT-applied before Seek+Play,
     // and the two L1 lookahead blocks cannot contaminate the oracle.
     run_paced(engine, LOOKAHEAD_BLOCKS);
-    let cycles = engine.control_drain_observations();
-    let rt_install_receipts: Vec<Value> = cycles
-        .iter()
-        .flat_map(|cycle| cycle.receipts.iter())
-        .map(|receipt| {
-            json!({
-                "command_id": format!("{:?}", receipt.id),
-                "status": format!("{:?}", receipt.status),
-                "requested_frame": receipt.requested_frame.frame(),
-                "applied_frame": receipt.applied_frame.map(ruviform_media_core::EngineFrame::frame),
-                "transport_generation": receipt.transport_generation.get(),
-                "plan_generation": receipt.plan_generation.get(),
-                "clock_epoch": receipt.clock_epoch.get(),
-                "degradation": receipt.degradation.map(|d| format!("{d:?}")),
-                "reason": receipt.reason.map(|r| format!("{r:?}")),
-            })
-        })
-        .collect();
+    let rt_install_receipts: Vec<Value> =
+        observed_receipts(engine).iter().map(receipt_json).collect();
     let positive = measure_positive(app, engine, processor, case, measure_quarter, 2, edit_bpm);
     json!({
         "edit": {
@@ -516,7 +507,19 @@ fn execute_musical_run(
     }
 }
 
-fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
+struct InstrumentRun {
+    app: SynvelisApp,
+    engine: SessionRoutingEngine,
+    processor: ProcessorId,
+    provenance: Value,
+}
+
+fn instrument_run(
+    probe: &FixtureProbe,
+    runner_env: &str,
+    runner_stem: &str,
+    case: &str,
+) -> InstrumentRun {
     let instrument = descriptor_named(probe, TEST_INSTRUMENT);
     let runner = runner_program(runner_env, runner_stem);
     let runner_path = PathBuf::from(&runner);
@@ -524,8 +527,8 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
     let (runner_size, runner_sha256) = file_facts(&runner_path);
     let (staged_size, staged_sha256) = file_facts(&staged_fixture);
     assert_eq!(staged_sha256, probe.sha256);
-
-    let root = scratch(&format!("{}-production-musical", probe.format));
+    assert_eq!(staged_size, probe.path.metadata().unwrap().len());
+    let root = scratch(&format!("{}-{case}", probe.format));
     std::fs::create_dir_all(root.join("media")).unwrap();
     let mut app = SynvelisApp::new(BackendReport::available(
         "gpui",
@@ -553,6 +556,29 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
             revision,
         )
         .unwrap();
+    InstrumentRun {
+        app,
+        engine,
+        processor,
+        provenance: json!({
+            "artifacts": {
+                "fixture": {"path": probe.path, "size": staged_size, "sha256": probe.sha256},
+                "staged_fixture": {"path": staged_fixture, "size": staged_size, "sha256": staged_sha256},
+                "runner": {"path": runner_path, "size": runner_size, "sha256": runner_sha256, "resolution_env": runner_env},
+                "ruviform_resolved_revision": ruviform_revision(),
+            },
+            "descriptor": {"id": instrument.id, "name": instrument.name, "vendor": instrument.vendor, "version": instrument.version},
+        }),
+    }
+}
+
+fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
+    let InstrumentRun {
+        mut app,
+        engine,
+        processor,
+        provenance,
+    } = instrument_run(probe, runner_env, runner_stem, "production-musical");
     let run = execute_musical_run(&mut app, &engine, processor);
 
     println!(
@@ -562,13 +588,8 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
             "format": probe.format,
             "test": format!("tim03_l1_production_musical_transport::{}_production_musical_transport", probe.format),
             "environment": {"os": env::consts::OS, "arch": env::consts::ARCH},
-            "artifacts": {
-                "fixture": {"path": probe.path, "sha256": probe.sha256},
-                "staged_fixture": {"path": staged_fixture, "size": staged_size, "sha256": staged_sha256},
-                "runner": {"path": runner_path, "size": runner_size, "sha256": runner_sha256, "resolution_env": runner_env},
-                "ruviform_resolved_revision": ruviform_revision(),
-            },
-            "descriptor": {"id": instrument.id, "name": instrument.name, "vendor": instrument.vendor, "version": instrument.version},
+            "artifacts": provenance["artifacts"],
+            "descriptor": provenance["descriptor"],
             "production_wiring": {
                 "seam": "compose_routing_engine_with_out_of_process_and_boundaries",
                 "generation": run.generation,
@@ -630,4 +651,410 @@ fn vst3_production_musical_transport() {
 fn clap_production_musical_transport() {
     let (probe, _library) = load_clap();
     exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);
+}
+
+const HISTORY_EDIT_TICK: i64 = 9_600;
+const HISTORY_ANCHOR_TICK: i64 = 4_820;
+const HISTORY_QUARTER: i64 = 24;
+const HISTORY_DELTA_TICKS: i64 = 2;
+const HISTORY_A: u32 = 75_000;
+const HISTORY_B: u32 = 110_000;
+
+#[derive(Clone, Copy, Debug)]
+enum HistoryStep {
+    Add,
+    UndoBeforeMeasurement,
+    RedoPlaying,
+    UndoPlaying,
+    DivergentAddPlaying,
+}
+
+impl HistoryStep {
+    fn operation(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::UndoBeforeMeasurement | Self::UndoPlaying => "undo",
+            Self::RedoPlaying => "redo",
+            Self::DivergentAddPlaying => "divergent-add",
+        }
+    }
+
+    fn playing(self) -> bool {
+        matches!(
+            self,
+            Self::RedoPlaying | Self::UndoPlaying | Self::DivergentAddPlaying
+        )
+    }
+
+    fn measured(self) -> bool {
+        matches!(
+            self,
+            Self::UndoBeforeMeasurement | Self::RedoPlaying | Self::DivergentAddPlaying
+        )
+    }
+
+    fn bpm(self) -> u32 {
+        match self {
+            Self::Add | Self::RedoPlaying => HISTORY_A,
+            Self::UndoBeforeMeasurement | Self::UndoPlaying => TEMPO_BPM_MILLI,
+            Self::DivergentAddPlaying => HISTORY_B,
+        }
+    }
+
+    fn apply(self, app: &mut SynvelisApp) {
+        match self {
+            Self::Add | Self::DivergentAddPlaying => {
+                apply_tempo_edit(app, HISTORY_EDIT_TICK, self.bpm());
+            }
+            Self::UndoBeforeMeasurement | Self::UndoPlaying => {
+                assert!(app.workspace_mut().session_mut().undo().unwrap());
+            }
+            Self::RedoPlaying => assert!(app.workspace_mut().session_mut().redo().unwrap()),
+        }
+    }
+}
+
+fn observed_transport(run: &InstrumentRun) -> TransportSpan {
+    run.engine
+        .with_control_dispatch(|dispatch| dispatch.last_observed_span(run.processor).copied())
+        .flatten()
+        .expect("observed node transport span")
+}
+
+fn history_position(span: TransportSpan, project: &Project, playing: bool) -> Value {
+    assert_eq!(
+        span.ctx.status,
+        if playing {
+            TransportStatus::Playing
+        } else {
+            TransportStatus::Paused
+        }
+    );
+    assert_eq!(span.ctx.loop_range(), None);
+    let end_position = span.ctx.position_at_offset(span.frames());
+    let map = project.tempo_map.compile().unwrap();
+    let affected_position = map
+        .beat_to_media(beat_ticks(HISTORY_EDIT_TICK).to_beat(), end_position.base())
+        .unwrap();
+    assert!(
+        end_position.value() < affected_position.value(),
+        "retroactive edit at {end_position:?}, affected position {affected_position:?}"
+    );
+    let beat = map.media_to_beat(end_position).unwrap();
+    json!({
+        "classification": if playing { "while_playing" } else { "before_measured_transport" },
+        "status": format!("{:?}", span.ctx.status),
+        "host_position_beats": [beat.numerator(), i64::from(beat.denominator())],
+        "media_frame_at_span_end": end_position.value(),
+        "node_frame_at_span_end": span.end.frame(),
+        "affected_edit_tick": HISTORY_EDIT_TICK,
+        "affected_edit_media_frame": affected_position.value(),
+        "transport_generation": span.ctx.transport_generation.get(),
+        "retroactive": false,
+    })
+}
+
+fn observed_receipts(engine: &SessionRoutingEngine) -> Vec<AppliedReceipt> {
+    engine
+        .control_drain_observations()
+        .into_iter()
+        .flat_map(|cycle| cycle.receipts)
+        .collect()
+}
+
+fn receipt_json(receipt: &AppliedReceipt) -> Value {
+    json!({
+        "command_id": format!("{:?}", receipt.id),
+        "status": format!("{:?}", receipt.status),
+        "requested_frame": receipt.requested_frame.frame(),
+        "applied_frame": receipt.applied_frame.map(ruviform_media_core::EngineFrame::frame),
+        "transport_generation": receipt.transport_generation.get(),
+        "plan_generation": receipt.plan_generation.get(),
+        "clock_epoch": receipt.clock_epoch.get(),
+        "degradation": receipt.degradation.map(|d| format!("{d:?}")),
+        "reason": receipt.reason.map(|r| format!("{r:?}")),
+    })
+}
+
+fn assert_exact_apply(receipt: &AppliedReceipt) {
+    assert_eq!(receipt.status, ApplyStatus::Applied);
+    assert_eq!(receipt.applied_frame, Some(receipt.requested_frame));
+    assert_eq!(receipt.reason, None);
+    assert_eq!(receipt.degradation, None);
+}
+
+fn anchor_history(run: &InstrumentRun, playing: bool) -> TransportApplicationReport {
+    let InstrumentRun {
+        app,
+        engine,
+        processor,
+        ..
+    } = run;
+    let seek = TransportApplicationCommand::Seek(beat_ticks(HISTORY_ANCHOR_TICK));
+    let commands = if playing {
+        assert_eq!(observed_transport(run).ctx.status, TransportStatus::Playing);
+        vec![seek]
+    } else {
+        vec![seek, TransportApplicationCommand::Pause]
+    };
+    let _ = observed_receipts(engine);
+    let report = apply_transport(app, engine, *processor, &commands);
+    run_paced(engine, LOOKAHEAD_BLOCKS + 1);
+    let receipts = observed_receipts(engine);
+    let applied: Vec<_> = receipts
+        .iter()
+        .filter(|r| r.status == ApplyStatus::Applied)
+        .collect();
+    assert_eq!(
+        applied.len(),
+        commands.len(),
+        "anchor commands did not apply: {receipts:?}"
+    );
+    for receipt in applied {
+        assert_exact_apply(receipt);
+        assert_eq!(receipt.requested_frame, report.call_start);
+    }
+    let span = observed_transport(run);
+    let expected = report.conversions[0].media.value()
+        + if playing {
+            i64::try_from(span.end.frame() - report.call_start.frame()).unwrap()
+        } else {
+            0
+        };
+    assert_eq!(span.ctx.position_at_offset(span.frames()).value(), expected);
+    report
+}
+
+fn history_snapshot(run: &InstrumentRun) -> Value {
+    let session = run.app.workspace().session();
+    json!({
+        "project_revision": session.revision().0,
+        "tempo_revision": session.project().tempo_map.revision,
+        "tempo_content_fingerprint": session.project().tempo_map.tempo_events,
+    })
+}
+
+fn expected_history_project(baseline: &Project, step: HistoryStep) -> Project {
+    let mut expected = baseline.clone();
+    if step.bpm() != TEMPO_BPM_MILLI {
+        expected.tempo_map.revision += 1;
+        expected.tempo_map.tempo_events.push(TempoEventDto {
+            tick: HISTORY_EDIT_TICK,
+            bpm_milli: step.bpm(),
+        });
+    }
+    expected
+}
+
+fn history_plan(run: &InstrumentRun, bpm: u32) -> (u64, Value) {
+    let mut evidence = control_plan_evidence(&run.app, &run.engine, run.processor);
+    let (generation, bpm_milli) = run
+        .engine
+        .with_control_dispatch(|dispatch| {
+            let plan = dispatch.last_plan(run.processor).unwrap();
+            let sample = beat_ticks(HISTORY_EDIT_TICK + 1).to_beat();
+            let music = plan
+                .tempo_map
+                .as_ref()
+                .unwrap()
+                .time_info(sample, plan.musical_ppqn.unwrap())
+                .unwrap();
+            assert_eq!(
+                music.bpm_milli, bpm,
+                "wrong live tempo before applying any new transport command"
+            );
+            (plan.generation.get(), music.bpm_milli)
+        })
+        .unwrap();
+    evidence["plan_bpm_milli_after_edit_tick"] = json!(bpm_milli);
+    (generation, evidence)
+}
+
+fn history_install(run: &InstrumentRun, before: TransportSpan, generation: u64) -> Vec<Value> {
+    run_paced(&run.engine, LOOKAHEAD_BLOCKS);
+    let receipts = observed_receipts(&run.engine);
+    let applied: Vec<_> = receipts
+        .iter()
+        .filter(|r| r.status == ApplyStatus::Applied)
+        .collect();
+    assert_eq!(
+        applied.len(),
+        1,
+        "expected only the plan install: {receipts:?}"
+    );
+    assert_exact_apply(applied[0]);
+    assert_eq!(applied[0].plan_generation.get(), generation);
+    assert_eq!(
+        applied[0].transport_generation,
+        before.ctx.transport_generation
+    );
+    let after = observed_transport(run);
+    assert_eq!(after.ctx.status, before.ctx.status);
+    let elapsed = u32::try_from(after.end.frame() - before.start.frame()).unwrap();
+    assert_eq!(
+        after.ctx.position_at_offset(after.frames()),
+        before.ctx.position_at_offset(elapsed)
+    );
+    receipts.iter().map(receipt_json).collect()
+}
+
+fn run_history_step(
+    run: &mut InstrumentRun,
+    baseline: &Project,
+    step: HistoryStep,
+    routing: u64,
+) -> Value {
+    let anchor = anchor_history(run, step.playing());
+    let span = observed_transport(run);
+    let session = run.app.workspace().session();
+    let position = history_position(span, session.project(), step.playing());
+    let project_revision = session.revision().0;
+    let graph_build_attempts = session.engine().graph_builds();
+    let before = history_snapshot(run);
+    let old_plan = history_plan(
+        run,
+        if matches!(
+            step,
+            HistoryStep::UndoBeforeMeasurement | HistoryStep::UndoPlaying
+        ) {
+            HISTORY_A
+        } else {
+            TEMPO_BPM_MILLI
+        },
+    )
+    .0;
+
+    step.apply(&mut run.app);
+    let session = run.app.workspace().session();
+    assert_eq!(session.revision().0, project_revision + 1);
+    assert_eq!(
+        *session.project(),
+        expected_history_project(baseline, step),
+        "{step:?} changed more than the intended tempo snapshot"
+    );
+    assert_eq!(session.engine().graph_builds(), graph_build_attempts + 1);
+    assert_eq!(session.engine().last_built_revision(), session.revision());
+    assert_eq!(run.engine.control_generation(), Some(routing));
+
+    // Transport application also syncs the project; prove notification and
+    // RT installation before invoking it, or that retry could mask a defect.
+    let (generation, plan) = history_plan(run, step.bpm());
+    assert_ne!(generation, old_plan);
+    let receipts = history_install(run, span, generation);
+    let measurement = step.measured().then(|| {
+        assert!(
+            HISTORY_QUARTER * i64::from(PROJECT_PPQN) - HISTORY_DELTA_TICKS > HISTORY_EDIT_TICK
+        );
+        measure_positive(
+            &run.app,
+            &run.engine,
+            run.processor,
+            step.operation(),
+            HISTORY_QUARTER,
+            HISTORY_DELTA_TICKS,
+            step.bpm(),
+        )
+    });
+    json!({
+        "operation": step.operation(),
+        "before": before,
+        "after": history_snapshot(run),
+        "operation_transport": position,
+        "anchor": {"host_ticks": HISTORY_ANCHOR_TICK, "call_start": anchor.call_start.frame(), "commands": format!("{:?}", anchor.commands)},
+        "control_plan_before_measurement": plan,
+        "rt_install_receipts": receipts,
+        "retained_live_plan_generation": generation,
+        "collateral_project_content_unchanged": true,
+        "graph_notification_revision": project_revision + 1,
+        "pcm": measurement,
+    })
+}
+
+fn exercise_history(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
+    let mut run = instrument_run(probe, runner_env, runner_stem, "tempo-undo-redo");
+    let (routing, _) = activate_generation_paced(&run.engine, "undo/redo instrument activation");
+    run_paced(&run.engine, LOOKAHEAD_BLOCKS + 2);
+    let baseline = run.app.workspace().session().project().clone();
+    assert_eq!(baseline.ppqn.0, PROJECT_PPQN);
+    assert_eq!(
+        baseline.tempo_map.tempo_events,
+        [
+            TempoEventDto {
+                tick: 0,
+                bpm_milli: 120_000
+            },
+            TempoEventDto {
+                tick: 1,
+                bpm_milli: TEMPO_BPM_MILLI
+            },
+        ]
+    );
+    let sequence: Vec<_> = [
+        HistoryStep::Add,
+        HistoryStep::UndoBeforeMeasurement,
+        HistoryStep::RedoPlaying,
+        HistoryStep::UndoPlaying,
+        HistoryStep::DivergentAddPlaying,
+    ]
+    .into_iter()
+    .map(|step| run_history_step(&mut run, &baseline, step, routing))
+    .collect();
+    let project_b = run.app.workspace().session().project();
+    let a = compile_project_musical_transport(&expected_history_project(
+        &baseline,
+        HistoryStep::RedoPlaying,
+    ))
+    .unwrap();
+    let b = compile_project_musical_transport(project_b).unwrap();
+    assert_eq!(a.tempo_revision(), b.tempo_revision());
+    assert!(!a.same_project_basis(&b));
+    assert!(!run.app.workspace_mut().session_mut().redo().unwrap());
+
+    println!(
+        "tim03-dynamic-tempo-undo-redo {}",
+        json!({
+            "schema": "tim03-dynamic-tempo-undo-redo/v1",
+            "row_family": "production_real_abi_undo_redo_matrix",
+            "format": probe.format,
+            "test": format!("{}_production_tempo_undo_redo", probe.format),
+            "tested_sha": env::var("TIM03_VERIFIED_SHA").ok(),
+            "environment": {"os": env::consts::OS, "arch": env::consts::ARCH},
+            "artifacts": run.provenance["artifacts"],
+            "descriptor": run.provenance["descriptor"],
+            "production_wiring": {
+                "seam": "compose_routing_engine_with_out_of_process_and_boundaries -> PluginNode -> L1 runner -> test_instrument",
+                "generation": routing,
+                "boundary_declaration": format!("{:?}", boundary_declaration()),
+                "history_path": "ProjectSession",
+                "direct_endpoint_process_api": false,
+                "caller_supplied_transport_info": false,
+                "test_only_seed_or_fake_plan_install": false,
+                "direct_endpoint_injection": false,
+            },
+            "project_ppqn": PROJECT_PPQN,
+            "adapter_projection_ppqn": ADAPTER_PPQN,
+            "lookahead": {
+                "blocks": LOOKAHEAD_BLOCKS,
+                "frames_per_block": BLOCK_FRAMES,
+                "initial_blocks_used_as_positive": false,
+                "rule": "one exact click after lookahead required; silence, pass-through and duplicate clicks cannot satisfy the oracle",
+            },
+            "same_revision_different_source": {"tempo_revision": a.tempo_revision().get(), "same_project_basis": false},
+            "operation_sequence": sequence,
+            "not_run": ["full dynamic edit matrix", "fault/state/crash", "GUI/EXT-L3", "macOS/Linux runtime", "3OS CI", "AudioLens cross-consumer"],
+            "verdict": "pass",
+        })
+    );
+}
+
+#[test]
+fn vst3_production_tempo_undo_redo() {
+    let (probe, _library) = load_vst3();
+    exercise_history(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);
+}
+
+#[test]
+fn clap_production_tempo_undo_redo() {
+    let (probe, _library) = load_clap();
+    exercise_history(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);
 }

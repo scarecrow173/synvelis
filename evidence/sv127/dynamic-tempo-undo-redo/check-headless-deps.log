@@ -1,0 +1,2 @@
+[check-headless-deps] $ node tools/check-headless-deps.mjs
+check-headless-deps: no GUI framework deps in 12 headless crates
