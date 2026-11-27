@@ -22,15 +22,16 @@ use ruviform_plugin_core::{
     ProcessContext, ProcessResult, TimedParamEvent, TransportInfo, erase, erase_sendable,
 };
 use ruviform_plugin_host::{EndpointBounds, HostCommand, HostReply, PluginHost};
+use serde_json::{Value, json};
 use synvelis_player::fixture::write_fixture;
 use synvelis_player::host::PluginHostProcessors;
 use synvelis_player::import::{ImportRequest, import_local};
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine};
 use synvelis_player::{
     FastControlOutcome, FastControlWrite, MusicalTransportError, ParamDispatch,
-    RoutingControlDispatch, compile_project_musical_transport,
+    PlanMusicalTransport, RoutingControlDispatch, compile_project_musical_transport,
 };
-use synvelis_project::tempo::{SignatureDto, TempoEventDto};
+use synvelis_project::tempo::{SignatureDto, TempoEventDto, TempoMapData};
 use synvelis_project::{
     AutomationTimeScope, BeatPoint, ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command,
     ControlOwner, CounterIdGenerator, LaneId, MediaDuration, MediaTimeValue, ParamMapping,
@@ -319,6 +320,20 @@ fn invalid_project_state_is_honestly_absent_not_fixed_fallback() {
     let plan = dispatch.dispatch(&[param_write(64, 0.25)]).unwrap();
     assert!(plan.tempo_map.is_none());
     assert_eq!(plan.musical_ppqn, None, "no fixed 960 fallback may appear");
+    println!(
+        "tim03-dynamic-tempo-undo-redo {}",
+        json!({
+            "schema": "tim03-dynamic-tempo-undo-redo/v1",
+            "row_family": "negative_and_constraint_evidence",
+            "test": "invalid_project_state_is_honestly_absent_not_fixed_fallback",
+            "tested_sha": std::env::var("TIM03_VERIFIED_SHA").ok(),
+            "invalid_musical_input": "PpqnMismatch(480, 960)",
+            "missing_tempo_map": true,
+            "missing_ppqn": true,
+            "fixed_960_fallback": false,
+            "verdict": "pass",
+        })
+    );
 }
 
 #[test]
@@ -578,14 +593,16 @@ fn event_at(
         .unwrap_or_else(|| panic!("missing event at frame {frame}: {:?}", plan.events))
 }
 
-fn mixed_refresh_control() -> (
+fn mixed_refresh_control(
+    scratch_name: &str,
+) -> (
     ProjectController,
     ProcessorId,
     ParameterTargetId,
     RoutingEngine,
     RoutingControlDispatch,
 ) {
-    let root = scratch("mixed-refresh");
+    let root = scratch(scratch_name);
     let mut c = controller_with_musical_project();
     let imported = import_stereo(&mut c, &root, 4_800);
     let (_, lane, strip) = add_track_strip(&mut c);
@@ -690,24 +707,20 @@ fn assert_invalid_ppqn_refresh_is_honestly_absent(
     assert_eq!(invalid_plan.musical_ppqn, None);
 }
 
-/// The representative mixed-plan oracle the earlier MIDI-only refresh test
-/// could not express: staged clip MIDI, multiple future fast-control param
-/// events, and one transport-generation-bound event all survive a
-/// `RoutingControlDispatch` musical refresh with identity and ordering
-/// intact. This is control-surface evidence, not a direct endpoint injection.
-#[test]
-fn routing_control_musical_refresh_preserves_representative_mixed_plan() {
-    let (mut c, processor, target, mut eng, mut control) = mixed_refresh_control();
-
-    let initial_midi = [(500, note_on(60)), (640, note_on(64))];
-    control
-        .stage_midi_plan(c.live(), processor, &initial_midi)
-        .unwrap();
+fn stage_mixed_plan(
+    c: &ProjectController,
+    processor: ProcessorId,
+    target: ParameterTargetId,
+    eng: &mut RoutingEngine,
+    control: &mut RoutingControlDispatch,
+    midi: &[(i64, MidiEvent)],
+) -> std::sync::Arc<ruviform_media_core::TransportPlan<EventKind>> {
+    control.stage_midi_plan(c.live(), processor, midi).unwrap();
     let revision = c.live_revision();
-    let unbound = fast_write(target, 120, 0.25, revision, None);
+    let unbound = fast_write(target, 1_200, 0.25, revision, None);
     let bound = fast_write(
         target,
-        180,
+        1_280,
         0.50,
         revision,
         Some(TransportGeneration::new(1)),
@@ -727,7 +740,7 @@ fn routing_control_musical_refresh_preserves_representative_mixed_plan() {
         c.live(),
         BeatPoint::new(0, 480).unwrap(),
         MediaTime::new(0, frame_base()),
-        active_generation(&eng),
+        active_generation(eng),
     );
     assert!(!tick.gated, "active surface must drain queued writes");
     assert_eq!(tick.queue_delivered, 2);
@@ -742,13 +755,23 @@ fn routing_control_musical_refresh_preserves_representative_mixed_plan() {
         2,
         "staged MIDI must be in the mixed plan"
     );
-    let unbound_before = event_at(&before, 120);
+    let unbound_before = event_at(&before, 1_200);
     assert_eq!(unbound_before.transport_generation, None);
-    let bound_before = event_at(&before, 180);
+    let bound_before = event_at(&before, 1_280);
     assert_eq!(
         bound_before.transport_generation,
         Some(TransportGeneration::new(1))
     );
+    before
+}
+
+/// The representative mixed-plan oracle the earlier MIDI-only refresh test
+/// could not express. This is control-surface evidence, not a direct endpoint injection.
+#[test]
+fn routing_control_musical_refresh_preserves_representative_mixed_plan() {
+    let (mut c, processor, target, mut eng, mut control) = mixed_refresh_control("mixed-refresh");
+    let initial_midi = [(500, note_on(60)), (640, note_on(64))];
+    let before = stage_mixed_plan(&c, processor, target, &mut eng, &mut control, &initial_midi);
 
     let pre_revision = c.live().tempo_map.revision;
     apply_project_op(
@@ -771,13 +794,7 @@ fn routing_control_musical_refresh_preserves_representative_mixed_plan() {
             .map(ruviform_media_core::Ppqn::ticks_per_quarter),
         Some(480)
     );
-    assert_eq!(after.events.len(), before.events.len());
-    for (old, new) in before.events.iter().zip(&after.events) {
-        assert_eq!(new.position, old.position);
-        assert_eq!(new.source_sequence, old.source_sequence);
-        assert_eq!(new.payload, old.payload);
-        assert_eq!(new.transport_generation, old.transport_generation);
-    }
+    assert_plan_events_preserved(&before, &after);
     assert_eq!(
         control.staged_midi(processor),
         Some(initial_midi.as_slice())
@@ -800,4 +817,169 @@ fn routing_control_musical_refresh_preserves_representative_mixed_plan() {
     // project with mismatched PPQN must become typed unavailable evidence,
     // clear both musical halves, and never synthesize fixed 960.
     assert_invalid_ppqn_refresh_is_honestly_absent(&mut control, c.live(), processor);
+}
+
+const IDENTITY_EDIT_TICK: i64 = 9_600;
+const SOURCE_A: u32 = 75_000;
+const SOURCE_B: u32 = 110_000;
+
+fn add_identity_tempo(c: &mut ProjectController, bpm_milli: u32) {
+    apply_project_op(
+        c,
+        ProjectOp::AddTempoEvent {
+            tick: IDENTITY_EDIT_TICK,
+            bpm_milli,
+        },
+    );
+}
+
+fn project_source_evidence(c: &ProjectController) -> Value {
+    json!({
+        "project_revision": c.live_revision().0,
+        "tempo_revision": c.live().tempo_map.revision,
+        "tempo_content_fingerprint": c.live().tempo_map.tempo_events,
+    })
+}
+
+fn expected_tempo_add(base: &TempoMapData, bpm_milli: u32) -> TempoMapData {
+    let mut edited = base.clone();
+    edited.revision += 1;
+    edited.tempo_events.push(TempoEventDto {
+        tick: IDENTITY_EDIT_TICK,
+        bpm_milli,
+    });
+    edited
+}
+
+fn assert_same_revision_switch(
+    a: &PlanMusicalTransport,
+    b: &PlanMusicalTransport,
+    midi: &[(i64, MidiEvent)],
+) -> Value {
+    assert_eq!(a.tempo_revision(), b.tempo_revision());
+    assert!(!a.same_project_basis(b));
+
+    // A baseline sync between A and B would hide a revision-only freshness key.
+    let (mut dispatch, _) = dispatch_with_source();
+    assert!(dispatch.set_musical_transport(Some(a.clone())));
+    let stale = dispatch.dispatch_midi(midi).unwrap();
+    assert!(a.plan_carries(&stale));
+    assert!(dispatch.set_musical_transport(Some(b.clone())));
+    assert!(!dispatch.last_plan_musical_is_current());
+    assert!(!b.plan_carries(&stale));
+    let fresh = dispatch.refresh_musical_plan().unwrap().unwrap();
+    assert!(b.plan_carries(&fresh));
+    assert!(!a.plan_carries(&fresh));
+    assert!(dispatch.last_plan_musical_is_current());
+    assert_plan_events_preserved(&stale, &fresh);
+    json!({
+        "same_revision": true,
+        "same_project_basis": false,
+        "stale_a_current_before_replacement": false,
+        "exact_b_allocation_carried_after_replacement": true
+    })
+}
+
+#[test]
+fn routing_control_undo_redo_refresh_preserves_mixed_plan_and_exact_source() {
+    let (mut c, processor, target, mut eng, mut control) = mixed_refresh_control("undo-redo");
+    let midi = [(500, note_on(60)), (640, note_on(64))];
+    let initial = stage_mixed_plan(&c, processor, target, &mut eng, &mut control, &midi);
+    let baseline = c.live().tempo_map.clone();
+    let source_a = expected_tempo_add(&baseline, SOURCE_A);
+    let source_b = expected_tempo_add(&baseline, SOURCE_B);
+
+    let mut previous_generation = initial.generation;
+    let mut a_source = None;
+    let mut rows = Vec::new();
+    for (operation, expected) in [
+        ("add", &source_a),
+        ("undo", &baseline),
+        ("redo", &source_a),
+        ("undo", &baseline),
+        ("divergent-add", &source_b),
+    ] {
+        let before = project_source_evidence(&c);
+        let revision = c.live_revision();
+        match operation {
+            "add" => add_identity_tempo(&mut c, SOURCE_A),
+            "undo" => assert!(c.undo().unwrap()),
+            "redo" => assert!(c.redo().unwrap()),
+            "divergent-add" => add_identity_tempo(&mut c, SOURCE_B),
+            _ => unreachable!(),
+        }
+        assert_eq!(c.live_revision().0, revision.0 + 1);
+        assert_eq!(&c.live().tempo_map, expected, "{operation}");
+
+        let sync = control.sync_musical_transport(c.live());
+        assert!(sync.refresh_errors.is_empty());
+        assert_eq!(sync.refreshed, [processor]);
+        let plan = control.last_plan(processor).unwrap();
+        assert_ne!(plan.generation, previous_generation);
+        assert_eq!(control.last_plan_musical_is_current(processor), Some(true));
+        assert_eq!(control.staged_midi(processor), Some(midi.as_slice()));
+        assert_plan_events_preserved(&initial, plan);
+        let source = compile_project_musical_transport(c.live()).unwrap();
+        assert_complete_musical(plan, &source);
+        let ppqn = plan.musical_ppqn.unwrap();
+        let probe = BeatPoint::new(IDENTITY_EDIT_TICK + 1, 480)
+            .unwrap()
+            .to_beat();
+        let live_music = plan
+            .tempo_map
+            .as_ref()
+            .unwrap()
+            .time_info(probe, ppqn)
+            .unwrap();
+        let expected_music = expected.compile().unwrap().time_info(probe, ppqn).unwrap();
+        assert_eq!(live_music, expected_music, "{operation}");
+        previous_generation = plan.generation;
+
+        let collision = match operation {
+            "redo" => {
+                a_source = Some(source);
+                None
+            }
+            "divergent-add" => {
+                let a = a_source.as_ref().unwrap();
+                Some(assert_same_revision_switch(a, &source, &midi))
+            }
+            _ => None,
+        };
+        rows.push(json!({
+            "operation": operation,
+            "before": before,
+            "after": project_source_evidence(&c),
+            "plan_generation": plan.generation.get(),
+            "plan_tempo_revision": plan.tempo_revision.get(),
+            "plan_ppqn": ppqn.ticks_per_quarter(),
+            "plan_bpm_milli_after_edit_tick": live_music.bpm_milli,
+            "last_plan_musical_is_current": true,
+            "refresh_errors": sync.refresh_errors,
+            "same_revision_divergence": collision,
+        }));
+    }
+    assert!(
+        !c.redo().unwrap(),
+        "divergent add must discard the redo history"
+    );
+    println!(
+        "tim03-dynamic-tempo-undo-redo {}",
+        json!({
+            "schema": "tim03-dynamic-tempo-undo-redo/v1",
+            "row_family": "player_control_undo_redo_matrix",
+            "test": "routing_control_undo_redo_refresh_preserves_mixed_plan_and_exact_source",
+            "tested_sha": std::env::var("TIM03_VERIFIED_SHA").ok(),
+            "notification_scope": "ProjectController + explicit RoutingControlDispatch sync, not ProjectSession notification",
+            "sequence": rows,
+            "events_preserved": initial.events.iter().map(|event| json!({
+                "position": event.position.value(),
+                "source_sequence": format!("{:?}", event.source_sequence),
+                "payload": format!("{:?}", event.payload),
+                "transport_generation": event.transport_generation.map(TransportGeneration::get),
+            })).collect::<Vec<_>>(),
+            "staged_midi_preserved": true,
+            "verdict": "pass",
+        })
+    );
 }
