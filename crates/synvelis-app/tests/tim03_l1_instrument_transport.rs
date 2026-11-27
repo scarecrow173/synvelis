@@ -652,7 +652,7 @@ fn evidence_json(input: EvidenceInput<'_>) -> Value {
     json!({
         "schema": "tim03-l1-instrument-transport-oracle/v1",
         "format": probe.format,
-        "test": format!("tim03_l1_instrument_transport::{}", probe.format),
+        "test": format!("tim03_l1_instrument_transport::{}_instrument_transport_clicks", probe.format),
         "target": {
             "branch": git_fact(&["branch", "--show-current"]),
             "head": git_fact(&["rev-parse", "HEAD"]),
