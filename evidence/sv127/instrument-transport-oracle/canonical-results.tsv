@@ -1,0 +1,11 @@
+fmt-check	mise run fmt-check	1
+check-synvelis-app	mise run check synvelis-app	0
+lint-synvelis-app	mise run lint synvelis-app	0
+test-tim03-instrument-transport	mise run test-tim03-instrument-transport	0
+test-tim03-l1	mise run test-tim03-l1	0
+test-tim03-transport	mise run test-tim03-transport	0
+test-synvelis-app	mise run test synvelis-app	0
+test-synvelis-player	mise run test synvelis-player	0
+test-rt	mise run test-rt	0
+check-headless-deps	mise run check-headless-deps	0
+prek-all-files	mise exec -- prek run --all-files	0
