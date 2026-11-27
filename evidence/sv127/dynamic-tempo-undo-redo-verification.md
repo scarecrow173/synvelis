@@ -10,7 +10,8 @@
 | PR #687: representative refresh | `0954a19f74711dfe4b4b54dcdcf87f2ba992a940` |
 | PR #688: frame/boundary matrix | `de3dcdd46e122077f437323030d7e501b9c36547` |
 | PR #689 / `origin/main`: base | `ab678e935fbdf7ec61781d448fdb067ec5de8d8e` |
-| 実行対象（テスト実装のコミット） | `d6368e0fbc97eb6284d6f198e8d954462ddf403f` |
+| 実 ABI 2 件の再計測対象 | `52fc864d03252893c6fa1de8034f3e6440c4764c` |
+| 下位 player の実行対象（テスト実装のコミット） | `d6368e0fbc97eb6284d6f198e8d954462ddf403f` |
 | Ruviform pin（変更なし） | `511e1a7944c35797942ba065c092b9263067c48a`、`Cargo.lock` の source 36 件 |
 
 ## 履歴と計測の範囲
@@ -43,16 +44,26 @@
 
 ## 証跡の同期
 
-[JSONL](dynamic-tempo-undo-redo.jsonl) の ABI 行 2 件は [最終正規 lane](dynamic-tempo-undo-redo/dynamic-distinct-fixtures.log)、下位と負例の 2 件は [正規 player test](dynamic-tempo-undo-redo/test-player.log) の stdout から抽出する。app lane は player テストバイナリを実行しないため、下位証跡を app lane の結果とは扱わない。player test の `RUST_TEST_NOCAPTURE=1` と `RUST_TEST_THREADS=1` は stdout 収集用。両 lane の `TIM03_VERIFIED_SHA` は実行対象のコミット。fixture の入力には runner の sibling とは別のビルド済み `debug/deps` DLL を指定し、両方のサイズ・SHA-256 を照合した。最終 log に指定値を記録している。既定解決で行った前段の run は、同一ファイルへ解決したため最終 JSONL には使っていない。
+[子プロセス観測ログ](dynamic-tempo-undo-redo/dynamic-child-provenance.log) は、2026-11-27 18:08 UTC の再計測で採取した。OS は Windows 11 Pro 26H2、バージョン `10.0.26300`、build `26300.9974`、x86_64。`mise run test-tim03-dynamic-musical-transport -- production_tempo_undo_redo` は exit 0（2 passed、2 filtered out）。両テストの 640 / 672 / 622 frame の行を、同じログに記録した。
+
+[採取スクリプト](dynamic-tempo-undo-redo/record-child-provenance.ps1) は、起動時に `SYNVELIS_TIM03_L1_PLUGIN_DIR` が未設定であることを記録した。さらに Windows のプロセスのモジュール一覧で、フィルタ付きテストプロセスを親とする子 runner の実ロード先を確認した。帰属は親環境からの継承だけを根拠にしていない。観測時に対象パスのファイルを SHA-256 で照合し、実行前後でも `target/debug/deps` の入力 DLL と runner の隣の DLL のハッシュが一致することを確認した。
+
+| 形式 | 子 PID | 実ロード先（worktree 相対） | SHA-256 |
+| --- | ---: | --- | --- |
+| CLAP | 59256 | `target/debug/ruviform_plugin_test_clap.dll` | `40cddfe605f7f2f96c0ea7aaf1cecc22909d4cabb22d64fd60dd15377c9b7d8b` |
+| VST3 | 9376 | `target/debug/ruviform_plugin_test_vst3.dll` | `923b98ce0499de313e01d299d96ef0f92ca5acdb18d62c23c434c6fd776e02bd` |
+
+[JSONL](dynamic-tempo-undo-redo.jsonl) の ABI 2 行は再計測の stdout に同じログの `run_provenance` を添えた。下位・負例の 2 行は従来の [player test](dynamic-tempo-undo-redo/test-player.log) のままとし、新しい OS 版や実行 SHA を付与していない。旧 ABI ログは履歴として残し、子の実ロード先の根拠には使わない。
 
 ```sh
 mise exec -- node evidence/sv127/dynamic-tempo-undo-redo/sync-jsonl.mjs --check \
+  52fc864d03252893c6fa1de8034f3e6440c4764c \
   d6368e0fbc97eb6284d6f198e8d954462ddf403f
 ```
 
 ## 正規コマンドの結果
 
-すべて Windows x86_64。再実行分を含むコマンド、exit code、raw log は [canonical-results.tsv](dynamic-tempo-undo-redo/canonical-results.tsv) に記録する。ローカルの実行結果は変更範囲の検証であり、統合検証には merge 後の対象 SHA の CI が必要。
+再実行分を含む OS、コマンド、exit code、raw log は [canonical-results.tsv](dynamic-tempo-undo-redo/canonical-results.tsv) に記録する。ローカルの実行結果は変更範囲の検証であり、統合検証には merge 後の対象 SHA の CI が必要。
 
 | 正規コマンド | exit | 結果 |
 | --- | ---: | --- |
@@ -64,6 +75,7 @@ mise exec -- node evidence/sv127/dynamic-tempo-undo-redo/sync-jsonl.mjs --check 
 | `mise run check synvelis-app` | 0 | Pass |
 | `mise run lint synvelis-app` | 0 | Pass |
 | `mise run test-tim03-dynamic-musical-transport` | 0 | Pass（既存 2 件、追加 2 件） |
+| `mise run test-tim03-dynamic-musical-transport -- production_tempo_undo_redo` | 0 | Pass（追加の 2 件のみ、OS 版と子の実ロード先を同時記録） |
 | `mise run test synvelis-app` | 0 | Pass（runner build 後） |
 | `mise run test-tim03-frame-boundary-matrix` | 0 | Pass |
 | `mise run test-tim03-transport` | 0 | Pass |

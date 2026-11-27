@@ -24,3 +24,4 @@ RUST_TEST_NOCAPTURE=1 mise run test synvelis-player --test tim03_musical_transpo
 mise exec -- prek run --all-files	Windows x86_64	1	preflight	prek-preflight.log
 mise run test-rt	Windows x86_64	0	canonical	test-rt.log
 mise exec -- prek run --all-files	Windows x86_64	0	canonical	prek-final.log
+mise run test-tim03-dynamic-musical-transport -- production_tempo_undo_redo	Windows 11 Pro 26H2 build 26300.9974 x86_64	0	canonical	dynamic-child-provenance.log
