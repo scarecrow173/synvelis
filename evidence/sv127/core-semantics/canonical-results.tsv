@@ -1,0 +1,9 @@
+command	os	exit	classification	log
+mise run fmt-check	windows-x86_64	1	InfrastructureFailure	os error 206 before rustfmt; see fmt-check.log
+mise exec -- cargo fmt -p synvelis-player -- --check	windows-x86_64	0	AuxiliaryPass	fmt-package.log
+mise run check synvelis-player	windows-x86_64	0	Pass	check-synvelis-player.log
+mise run lint synvelis-player	windows-x86_64	0	Pass	lint-synvelis-player.log
+mise run test synvelis-player	windows-x86_64	0	Pass	test-synvelis-player.log
+mise run test-rt	windows-x86_64	0	Pass after auxiliary runner build; initial missing-artifact exit 101 isolated	test-rt.log
+mise run check-headless-deps	windows-x86_64	0	Pass	check-headless-deps.log
+cargo build --locked -p synvelis-plugin-test-l1-runner	windows-x86_64	0	AuxiliarySetupPass	build-l1-runner-aux.log

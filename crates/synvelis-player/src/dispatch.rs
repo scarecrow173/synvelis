@@ -243,6 +243,13 @@ impl ParamDispatch {
         self.last_plan.as_ref().map(|plan| plan.generation)
     }
 
+    /// The plan generation the node scheduler last reported live in a
+    /// drained receipt. `None` means there is no scheduler evidence yet;
+    /// it is never treated as proof that a staged install succeeded.
+    pub(crate) const fn scheduler_plan_generation(&self) -> Option<PlanGeneration> {
+        self.scheduler_gen
+    }
+
     /// The node's staged clip MIDI content — merged into every plan
     /// this dispatcher mints. Empty on attach and after
     /// [`Self::clear_midi_plan`].
@@ -778,6 +785,9 @@ impl ParamDispatch {
         // rejected at apply time leaves it on the previous plan, so a
         // mismatch here proves `last_plan` never ran and projecting
         // through it would mint `Dispatched` for undelivered events.
+        // Before the first receipt there is no mismatch evidence yet;
+        // standalone/fabricated-span consumers retain the pre-existing
+        // projection contract, while any drained scheduler truth gates it.
         if let Some(receipt) = receipts.last() {
             self.scheduler_gen = Some(receipt.plan_generation);
         }
