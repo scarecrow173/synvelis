@@ -1966,3 +1966,54 @@ fn pd07_restore_reports_unknown_instance_without_panicking_or_dropping() {
     );
     assert!(app.plugin_dock_panel("view-9").is_none());
 }
+
+#[test]
+fn shell_tick_drives_deadline_pump_without_a_frontend_op() {
+    let (mut app, _authority) = direct_app_with_host(7);
+    direct_open_editor(&mut app, 7);
+    let now = Rc::new(Cell::new(Duration::ZERO));
+    app.with_plugin_editor_session_for_test("view-9", |session| {
+        session.set_deadline_policy(Some(SessionDeadlinePolicy {
+            timeout: Duration::from_millis(5),
+            clock: Box::new(ManualClock { now: now.clone() }),
+        }));
+        session.begin_detach().expect("manual in-flight detach");
+    })
+    .expect("bound session");
+
+    let mut shell = NativeShell::new(app, Duration::from_millis(16)).expect("compose shell");
+    let mut driver = FakeDriver::new();
+    let window = shell.open_main(&mut driver).expect("main window");
+    ready(&mut shell, &mut driver, window);
+    now.set(Duration::from_millis(6));
+
+    inject(&mut shell, &mut driver, DriverEvent::Tick);
+    inject(&mut shell, &mut driver, DriverEvent::Tick);
+
+    let failed: Vec<_> = driver
+        .events_for(window)
+        .iter()
+        .filter_map(|event| match event {
+            Event::Notify { data, .. } if data["channel"] == "syn.plugin_dock.state" => {
+                Some(data["data"].clone())
+            }
+            _ => None,
+        })
+        .filter(|row| row["view_id"] == "view-9")
+        .flat_map(|row| {
+            row["events"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .filter(|event| event["event"] == "failed")
+        .collect();
+    assert_eq!(
+        failed.len(),
+        1,
+        "shell tick projects the timeout exactly once"
+    );
+    assert_eq!(failed[0]["cause"], "Timeout");
+}
