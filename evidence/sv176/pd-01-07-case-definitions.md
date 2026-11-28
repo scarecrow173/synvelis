@@ -107,7 +107,7 @@ the upstream probe-case mechanism.
 | PD-04 2Window move/float/reDock/DPI | pointer → `evidence/sv114/sv-os-case-definitions.md` SV-OS-05 (2Window/Dock/IME/Focus headless pointer only) | NotRun | NotRun | synvelis#176 / synvelis#113 / ruviform#313 |
 | PD-05 Widget Focus/Keyboard/IME/Popup vs shortcut | pointer → `svt-headless-l1.md` SVT-09 (IPC/stale contract only; IME = unclaimed capability) | NotRun | NotRun | synvelis#176 / ruviform#313/#314 |
 | PD-06 hang/exit/destroyed/stale; RT/Project survive | pointer → `l1-contract-comparison.md` §1–2 (stale generation/epoch L1 contract) + `s1-headless-probe.md` (`host-terminate`/`session-lifecycle` Pass on the real binary — in-process, not a crashed-host/OS case) | NotRun | NotRun (real-host-termination lane absent) | synvelis#176 / ruviform#389/#630/#631 |
-| PD-07 Save→Reload logical state restore | pointer → `svt-headless-l1.md` SVT-08 (Save/Reload oracle, project-domain only — no plugin session) | NotRun | NotRun (plugin-session restore over a real window absent) | synvelis#176 / synvelis#114 |
+| PD-07 Save→Reload logical state restore | pointer → `svt-headless-l1.md` SVT-08 (project-domain only) + `s4-session-integration.md` (headless logical sidecar save/open restore, session/slot/lease/handle/token 非永続化) | NotRun | NotRun (plugin-session restore over a real window absent; headless logical persistence is not real reload evidence) | synvelis#176 / synvelis#114 |
 
 ## Case definitions
 
@@ -205,6 +205,10 @@ the upstream probe-case mechanism.
   され、native handle の永続化なしに editor が再 attach
   される（または正直に degrade する）。
 - Result: Real OS = `NotRun`、Real Plugin = `NotRun`。
+  Headless/Simulated = `s4-session-integration.md` に logical
+  persistence の証拠あり（sidecar save/open・logical state restore・
+  runtime id/handle 非永続化）。real reload/real window での再 attach
+  evidence ではない。
 
 ## Non-claims
 

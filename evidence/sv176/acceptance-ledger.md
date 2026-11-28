@@ -13,7 +13,7 @@ headless 実装+検証で充足し、S1 で実 ABI test-plugin 上の補強証�
 evidence: `evidence/sv176/pd-headless-contract.md`（semantic mount
 lane）+ `tests/plugin_dock.rs`（panel/op tier）+ S1 の
 `evidence/sv176/s1-headless-probe.md`/`s1-headless-probe.jsonl` +
-`tests/plugin_dock_probe.rs`（in-process real-ABI probe tier）。
+`tests/plugin_dock_probe.rs`（in-process real-ABI probe tier）。Session integration evidence: `evidence/sv176/s4-session-integration.md`。
 
 The 9 lines below are transcribed verbatim from Issue #176
 「受入条件」as of 2026-11-15 (the 「仮想優先の置換DoD」 first line is
@@ -44,6 +44,17 @@ uniformly (POLICIES.md §2 / Issue AC「OS/機能別Evidence」).
 - headless では共有 fake authority を使う `tests/plugin_dock_surface.rs` 7 tests と既存 `tests/plugin_dock.rs` 26 tests が、shared-only validation、foreign authority refusal、revoked/stale/forged lease refusal、index recycle、busy refusal、open/hide/show/redock/close、window-loss 収束、DSP/Project 非干渉を決定的に確認した。
 - GPUI-simulated では canonical `GpuiDriver::surface()` 上の slot を `plugin.editor` key に bind し、renderer の layout/visibility projection と unbind 後 suppression Hidden を canonical ledger 上で確認した。これは `GpuiSimulated` semantic/layout evidence であり、real OS window/native container/child HWND/pixel/input evidence ではない。
 - 受入分類は変えない。行 2・行 3 の structural gap を前進させるが、行 1・行 7 の Required real-window/native-dock gate は `NotRun` のまま、行 4・行 8 の統合 CI 判定は merge 後対象 SHA の Coordinator 証拠工程に残る。行 6 の非昇格規則どおり、headless/GPUI-simulated を Native Dock Pass と記録しない。
+
+
+## S4 session-integration slice（2026-11-28）
+
+本節は `feat/176-plugin-dock-session` の structural follow-up 実績を記録する。詳細な lane/verdict/non-claims は `evidence/sv176/s4-session-integration.md` を参照。
+
+- editor-session deadline 評価と panel event drain を `ui_pump` の 1 つの authoritative seam に接続し、frontend op がない bare shell `Tick` でも内部 lifecycle op 経由で pump されることを manual clock test で固定した。`Failed{Timeout}` は exactly once で投影される。
+- project new/open/reload 境界で旧 project の panel/session/lease/slot を収束する。host 不在・adapter close refusal は正直な termination cause へ落とし、shared authority 上の slot が `Released` になることを決定的に確認した。
+- PD-07 では project bundle の `plugin-docks.json` sidecar に logical state のみを保存し、session/slot/lease/handle/token を含まないことを recursive key scan で固定した。restore 後 panel は `Closed` 相当であり、window adoption 後の明示 open だけが editor を再 open する。
+- real ABI probe では ruviform#630 製 `test_gain` の `Unsupported` refusal が app 経路の `ui_pump` projection に exactly once で届くことを確認した。これは in-process headless evidence であり、real OS/native dock evidence ではない。
+- 受入分類は変えない。行 2・行 3 の headless session-integration 証拠を強化し、行 6・行 9 の verdict 分離規則に従うが、行 1・行 7 は `NotRun` のまま、行 4・行 8 の統合 CI 判定は merge 後対象 SHA の Coordinator 証拠工程に残る。
 
 ## 分類サマリ
 
