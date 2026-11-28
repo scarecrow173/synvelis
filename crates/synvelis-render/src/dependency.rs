@@ -27,10 +27,12 @@ use synvelis_project::id::{
     AssetId, BusId, ChainId, ClipId, CompId, CompRegionId, LaneId, ModulationSourceId,
     ParameterTargetId, ProcessorId, SemanticPortId, SendId, SourceId, StripId, TakeId, TrackId,
 };
-use synvelis_project::plugin_state::{PluginStateFailureKind, StateCaptureQuality};
+use synvelis_project::plugin_state::{
+    PluginStateBinding, PluginStateFailureKind, StateCaptureQuality,
+};
 use synvelis_project::project::AssetDigest;
 use synvelis_project::render_input::canonical_entity_digest;
-use synvelis_project::routing::{ConnectionKind, ProcessorBinding, StripOwner};
+use synvelis_project::routing::{ConnectionKind, PluginRef, ProcessorBinding, StripOwner};
 use synvelis_project::snapshot::ContentDigest;
 use synvelis_project::{
     AutomationTimeScope, CompCandidateRef, ControlOwner, PortBinding, PortDirection, PortOwner,
@@ -133,7 +135,16 @@ pub enum ExternalPin {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PluginStateProbeOutcome {
     /// Captured bytes whose digest was verified by the supplying port.
-    Captured(PluginStateEvidence),
+    /// `binding` is capture-time plugin identity provenance. It is used
+    /// only to reject stale evidence; acoustic evidence remains
+    /// `digest` + `quality`. A probe that asserts correctness out-of-band
+    /// may omit it (the static fixture port does so).
+    Captured {
+        /// Digest and observed quality.
+        evidence: PluginStateEvidence,
+        /// Capture-time plugin binding provenance.
+        binding: Option<PluginStateBinding>,
+    },
     /// The plugin does not support state capture.
     Unsupported,
     /// Capture or persisted-input recovery failed with a typed kind.
@@ -175,7 +186,10 @@ impl PluginStateProbe for StaticPluginStates {
         self.0
             .get(&processor)
             .cloned()
-            .map(PluginStateProbeOutcome::Captured)
+            .map(|evidence| PluginStateProbeOutcome::Captured {
+                evidence,
+                binding: None,
+            })
     }
 }
 
@@ -545,6 +559,78 @@ impl<'a> Resolver<'a> {
         }
     }
 
+    fn visit_plugin_state_outcome(&mut self, proc_id: ProcessorId, plugin: &PluginRef) {
+        match self.env.plugin_states.outcome(proc_id) {
+            None => {
+                self.unknown(
+                    UnknownCause::PluginStateUnknown {
+                        locator: proc_id.to_tagged(),
+                    },
+                    format!(
+                        "processor {} plugin {}",
+                        proc_id.to_tagged(),
+                        plugin.descriptor
+                    ),
+                );
+            }
+            Some(PluginStateProbeOutcome::Captured { evidence, binding }) => {
+                let mismatch = binding.as_ref().filter(|binding| {
+                    binding.descriptor != plugin.descriptor
+                        || binding.version != plugin.version
+                        || binding.capability_revision != plugin.capability_revision
+                });
+                if let Some(binding) = mismatch {
+                    self.unknown(
+                        UnknownCause::PluginStateUnknown {
+                            locator: proc_id.to_tagged(),
+                        },
+                        format!(
+                            "processor {} evidence binding {}@{}#{} != current {}@{}#{}",
+                            proc_id.to_tagged(),
+                            binding.descriptor,
+                            binding.version,
+                            binding.capability_revision,
+                            plugin.descriptor,
+                            plugin.version,
+                            plugin.capability_revision
+                        ),
+                    );
+                } else if evidence.quality.exact_eligible() {
+                    self.plugin_states.insert(proc_id, evidence);
+                } else {
+                    self.unknown(
+                        UnknownCause::PluginStateDegraded {
+                            locator: proc_id.to_tagged(),
+                            quality: format!("{:?}", evidence.quality),
+                            failure_kind: None,
+                        },
+                        format!("processor {}", proc_id.to_tagged()),
+                    );
+                }
+            }
+            Some(PluginStateProbeOutcome::Unsupported) => {
+                self.unknown(
+                    UnknownCause::PluginStateDegraded {
+                        locator: proc_id.to_tagged(),
+                        quality: "Unsupported".to_owned(),
+                        failure_kind: None,
+                    },
+                    format!("processor {}", proc_id.to_tagged()),
+                );
+            }
+            Some(PluginStateProbeOutcome::Failed { kind }) => {
+                self.unknown(
+                    UnknownCause::PluginStateDegraded {
+                        locator: proc_id.to_tagged(),
+                        quality: "Failed".to_owned(),
+                        failure_kind: Some(plugin_state_failure_kind_name(kind)),
+                    },
+                    format!("processor {}", proc_id.to_tagged()),
+                );
+            }
+        }
+    }
+
     fn visit_processor(&mut self, proc_id: ProcessorId) {
         if !self.first_visit(ObjectKind::Processor, &proc_id.to_tagged()) {
             return;
@@ -569,54 +655,7 @@ impl<'a> Resolver<'a> {
                 );
             }
             ProcessorBinding::Resolved(plugin) => {
-                match self.env.plugin_states.outcome(proc_id) {
-                    None => {
-                        self.unknown(
-                            UnknownCause::PluginStateUnknown {
-                                locator: proc_id.to_tagged(),
-                            },
-                            format!(
-                                "processor {} plugin {}",
-                                proc_id.to_tagged(),
-                                plugin.descriptor
-                            ),
-                        );
-                    }
-                    Some(PluginStateProbeOutcome::Captured(ev)) => {
-                        if ev.quality.exact_eligible() {
-                            self.plugin_states.insert(proc_id, ev);
-                        } else {
-                            self.unknown(
-                                UnknownCause::PluginStateDegraded {
-                                    locator: proc_id.to_tagged(),
-                                    quality: format!("{:?}", ev.quality),
-                                    failure_kind: None,
-                                },
-                                format!("processor {}", proc_id.to_tagged()),
-                            );
-                        }
-                    }
-                    Some(PluginStateProbeOutcome::Unsupported) => {
-                        self.unknown(
-                            UnknownCause::PluginStateDegraded {
-                                locator: proc_id.to_tagged(),
-                                quality: "Unsupported".to_owned(),
-                                failure_kind: None,
-                            },
-                            format!("processor {}", proc_id.to_tagged()),
-                        );
-                    }
-                    Some(PluginStateProbeOutcome::Failed { kind }) => {
-                        self.unknown(
-                            UnknownCause::PluginStateDegraded {
-                                locator: proc_id.to_tagged(),
-                                quality: "Failed".to_owned(),
-                                failure_kind: Some(plugin_state_failure_kind_name(kind)),
-                            },
-                            format!("processor {}", proc_id.to_tagged()),
-                        );
-                    }
-                }
+                self.visit_plugin_state_outcome(proc_id, plugin);
                 if self
                     .project
                     .plugin_instances

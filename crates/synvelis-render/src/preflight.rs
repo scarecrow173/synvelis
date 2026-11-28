@@ -94,7 +94,7 @@ pub fn preflight_static(
             detail: format!("emitted data would exceed the RIFF limit ({bytes} B)"),
         });
     }
-    preflight_plugin_state(request)?;
+    preflight_plugin_state(request, snapshot.project.routing.processors.len() as u64)?;
     // Source registration + verification gates — Missing Source and
     // Unverified Source are preflight failures, never silent skips.
     for clip in snapshot.project.clips.values() {
@@ -126,23 +126,35 @@ pub fn preflight_static(
 }
 
 /// TIM-04 plugin-state recipe gate: `Strict` demands exact-eligible
-/// evidence; `BestEffort`/`Unsupported`/failed records refuse the
+/// evidence covering exactly the project's processors; degraded,
+/// missing, inconsistent, or coverage-mismatched evidence refuses the
 /// export before any output byte exists. `Standard` passes — the
 /// receipt records the evidence verbatim.
-fn preflight_plugin_state(request: &ExportRequest) -> Result<(), PreflightError> {
+fn preflight_plugin_state(
+    request: &ExportRequest,
+    expected_processors: u64,
+) -> Result<(), PreflightError> {
     let Some(recipe) = &request.plugin_state else {
         return Ok(());
     };
-    if recipe.policy == StateQualityPolicy::Strict && !recipe.evidence.exact_eligible() {
+    if recipe.policy == StateQualityPolicy::Strict
+        && !recipe
+            .evidence
+            .exact_eligible_for_processors(expected_processors)
+    {
         return Err(PreflightError::PluginStateQuality {
             detail: format!(
-                "strict offline recipe but plugin state evidence is not exact-eligible \
-                 ({} processors, {} exact, {} degraded, {} unsupported, {} failed)",
+                concat!(
+                    "strict offline recipe but plugin state evidence is not exact coverage ",
+                    "(evidence: {} processors, {} exact, {} degraded, {} unsupported, ",
+                    "{} failed; project processors: {})"
+                ),
                 recipe.evidence.processors,
                 recipe.evidence.exact,
                 recipe.evidence.degraded,
                 recipe.evidence.unsupported,
                 recipe.evidence.failed,
+                expected_processors,
             ),
         });
     }

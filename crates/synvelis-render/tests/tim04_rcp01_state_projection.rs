@@ -174,7 +174,13 @@ fn resolve_with_probe(project: &Project, plugins: &dyn PluginStateProbe) -> Reci
 fn record(processor: ProcessorId, outcome: PluginStateOutcome) -> PluginStateRecord {
     PluginStateRecord {
         processor_id: processor,
-        binding: None,
+        binding: Some(PluginStateBinding {
+            descriptor: "test-plugin".into(),
+            version: "1.0".into(),
+            capability_revision: 1,
+            host_runtime_instance: "state-fixture".into(),
+            graph_generation: 1,
+        }),
         project_revision: 1,
         stored_at: "test".into(),
         outcome,
@@ -886,7 +892,16 @@ fn publish_and_reopen(
         projection.outcome(processor),
         Some(
             quality.map_or(PluginStateProbeOutcome::Unsupported, |quality| {
-                PluginStateProbeOutcome::Captured(PluginStateEvidence { digest, quality })
+                PluginStateProbeOutcome::Captured {
+                    evidence: PluginStateEvidence { digest, quality },
+                    binding: Some(PluginStateBinding {
+                        descriptor: "test-plugin".into(),
+                        version: "1.0".into(),
+                        capability_revision: 1,
+                        host_runtime_instance: "state-fixture".into(),
+                        graph_generation: 1,
+                    }),
+                }
             })
         ),
         "{quality:?} reopen"
@@ -959,6 +974,57 @@ fn directory_state_reopen_preserves_quality_and_exact_eligibility() {
         assert!(matches!(observed.outcome, LookupOutcome::Unknown { .. }));
         assert!(observed.candidates.is_empty());
     }
+}
+
+#[test]
+fn captured_record_without_binding_is_not_exact_evidence() {
+    let (c, _, processor) = base_fx();
+    let (outcome, digest, blob) = captured(StateCaptureQuality::Quiescent, b"bindingless");
+    let mut entry = record(processor, outcome);
+    entry.binding = None;
+    let bytes = manifest_bytes(c.live(), vec![entry]);
+    let mut store = InMemoryPluginStateStore::new();
+    store.put_blob(&digest, &blob).unwrap();
+    assert!(matches!(
+        PersistedPluginStateProjection::from_manifest_bytes(&bytes, &store),
+        Err(PluginStateProjectionError::MissingCaptureBinding { processor_id } )
+            if processor_id == processor
+    ));
+}
+
+#[test]
+fn stale_binding_is_unknown_but_runtime_provenance_is_not_acoustic_identity() {
+    let (mut c, _, processor) = base_fx();
+    let (outcome, digest, blob) = captured(StateCaptureQuality::Quiescent, b"identity-state");
+    let mut entry = record(processor, outcome);
+    let binding = entry.binding.as_mut().unwrap();
+    binding.host_runtime_instance = "another-host-runtime".into();
+    binding.graph_generation = 99;
+    let (store, _, _) = publish_manifest(vec![entry], &[(digest, blob)], c.live());
+    let projection = PersistedPluginStateProjection::from_store_head(&store).unwrap();
+
+    let resolution = resolve_with_probe(c.live(), &projection);
+    assert!(matches!(resolution, RecipeResolution::Resolved { .. }));
+
+    apply(
+        &mut c,
+        ProjectOp::SetProcessorBinding {
+            processor_id: processor,
+            binding: ProcessorBinding::Resolved(PluginRef {
+                descriptor: "test-plugin".into(),
+                version: "2.0".into(),
+                capability_revision: 1,
+            }),
+        },
+    );
+    let resolution = resolve_with_probe(c.live(), &projection);
+    let causes = unknown_causes(&resolution);
+    assert!(
+        causes
+            .iter()
+            .any(|cause| matches!(cause, UnknownCause::PluginStateUnknown { .. })),
+        "stale binding did not become PluginStateUnknown: {causes:?}"
+    );
 }
 
 #[test]

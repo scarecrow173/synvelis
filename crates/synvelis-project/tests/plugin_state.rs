@@ -571,6 +571,41 @@ fn strict_save_rejects_degraded_and_publishes_nothing() {
 }
 
 #[test]
+fn quality_summary_requires_consistent_counts_and_expected_coverage() {
+    let exact_two = PluginStateQualitySummary {
+        processors: 2,
+        exact: 2,
+        degraded: 0,
+        unsupported: 0,
+        failed: 0,
+    };
+    assert!(exact_two.exact_eligible());
+    assert!(exact_two.exact_eligible_for_processors(2));
+    assert!(!exact_two.exact_eligible_for_processors(1));
+
+    let missing_coverage = PluginStateQualitySummary {
+        processors: 2,
+        exact: 1,
+        degraded: 0,
+        unsupported: 0,
+        failed: 0,
+    };
+    assert!(!missing_coverage.internally_consistent());
+    assert!(!missing_coverage.exact_eligible());
+
+    let vacuous = PluginStateQualitySummary {
+        processors: 0,
+        exact: 0,
+        degraded: 0,
+        unsupported: 0,
+        failed: 0,
+    };
+    assert!(vacuous.exact_eligible());
+    assert!(vacuous.exact_eligible_for_processors(0));
+    assert!(!vacuous.exact_eligible_for_processors(1));
+}
+
+#[test]
 fn strict_save_accepts_exact_quality() {
     let mut c = controller();
     let coord = add_processor(&mut c, "coord", resolved("coord"));

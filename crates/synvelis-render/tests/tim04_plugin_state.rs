@@ -181,6 +181,33 @@ fn basic_fixture(root: &Path) -> (ProjectController, SourceId) {
     (c, out.commit.source_id)
 }
 
+fn controller_with_processors(count: usize) -> ProjectController {
+    let mut c = controller();
+    apply(&mut c, ProjectOp::AddTrack { name: "t".into() });
+    let track = *c.live().tracks.keys().next().unwrap();
+    apply(&mut c, ProjectOp::AddTrackStrip { track_id: track });
+    let strip = c.live().routing.strip_of_track(track).unwrap().id;
+    for index in 0..count {
+        apply(
+            &mut c,
+            ProjectOp::InsertProcessor {
+                strip_id: strip,
+                index,
+                name: format!("fx{index}"),
+                binding: synvelis_project::ProcessorBinding::Resolved(
+                    synvelis_project::PluginRef {
+                        descriptor: format!("test-plugin-{index}"),
+                        version: "1.0".into(),
+                        capability_revision: 1,
+                    },
+                ),
+                sidechain_input: false,
+            },
+        );
+    }
+    c
+}
+
 // ------------------------------------------------------------------
 // Preflight gate matrix — `preflight_static` is the first stage and
 // touches no destination; the gate ordering is what the e2e below
@@ -190,29 +217,23 @@ fn basic_fixture(root: &Path) -> (ProjectController, SourceId) {
 #[test]
 fn strict_rejects_every_non_exact_class() {
     let root = scratch("gate");
-    let c = controller();
+    let c = controller_with_processors(2);
     let snapshot = RenderSnapshot::freeze(&c, root.join("media"));
 
     for evidence in [
         summary(1, 1, 0, 0), // one BestEffort
         summary(1, 0, 1, 0), // one Unsupported
         summary(1, 0, 0, 1), // one failed
-        summary(0, 0, 0, 0), // empty project is exact-eligible — control
     ] {
-        let empty = evidence.processors == 0;
         let req = request(
             root.join("out.wav"),
             Some(recipe(StateQualityPolicy::Strict, evidence)),
         );
         let result = preflight_static(&snapshot, &req);
-        if empty {
-            assert!(result.is_ok(), "empty evidence is exact-eligible");
-        } else {
-            assert!(
-                matches!(result, Err(PreflightError::PluginStateQuality { .. })),
-                "expected PluginStateQuality, got {result:?}"
-            );
-        }
+        assert!(
+            matches!(result, Err(PreflightError::PluginStateQuality { .. })),
+            "expected PluginStateQuality, got {result:?}"
+        );
     }
 }
 
@@ -224,7 +245,7 @@ fn strict_accepts_exact_and_standard_passes_degraded() {
 
     let exact = request(
         root.join("a.wav"),
-        Some(recipe(StateQualityPolicy::Strict, summary(2, 0, 0, 0))),
+        Some(recipe(StateQualityPolicy::Strict, summary(0, 0, 0, 0))),
     );
     assert!(preflight_static(&snapshot, &exact).is_ok());
 
@@ -238,6 +259,50 @@ fn strict_accepts_exact_and_standard_passes_degraded() {
     // No recipe — unchanged behavior.
     let plain = request(root.join("c.wav"), None);
     assert!(preflight_static(&snapshot, &plain).is_ok());
+}
+
+#[test]
+fn strict_requires_exact_processor_coverage_and_consistent_counts() {
+    let root = scratch("coverage-gate");
+
+    let c = controller();
+    let snapshot = RenderSnapshot::freeze(&c, root.join("media"));
+    let wrong_project = request(
+        root.join("wrong.wav"),
+        Some(recipe(StateQualityPolicy::Strict, summary(1, 0, 0, 0))),
+    );
+    assert!(matches!(
+        preflight_static(&snapshot, &wrong_project),
+        Err(PreflightError::PluginStateQuality { .. })
+    ));
+
+    let c = controller_with_processors(2);
+    let snapshot = RenderSnapshot::freeze(&c, root.join("media"));
+    let covered = request(
+        root.join("covered.wav"),
+        Some(recipe(StateQualityPolicy::Strict, summary(2, 0, 0, 0))),
+    );
+    assert!(preflight_static(&snapshot, &covered).is_ok());
+
+    for evidence in [
+        summary(1, 0, 0, 0),
+        PluginStateQualitySummary {
+            processors: 2,
+            exact: 1,
+            degraded: 0,
+            unsupported: 0,
+            failed: 0,
+        },
+    ] {
+        let req = request(
+            root.join("reject.wav"),
+            Some(recipe(StateQualityPolicy::Strict, evidence)),
+        );
+        assert!(matches!(
+            preflight_static(&snapshot, &req),
+            Err(PreflightError::PluginStateQuality { .. })
+        ));
+    }
 }
 
 // ------------------------------------------------------------------
@@ -302,7 +367,7 @@ fn strict_export_with_exact_evidence_completes() {
     let dest = root.join("exact.wav");
     let req = request(
         dest.clone(),
-        Some(recipe(StateQualityPolicy::Strict, summary(2, 0, 0, 0))),
+        Some(recipe(StateQualityPolicy::Strict, summary(0, 0, 0, 0))),
     );
     let job = ExportJob::new();
     let outcome = export(&snapshot, &req, OutputHooks::default(), &job);
