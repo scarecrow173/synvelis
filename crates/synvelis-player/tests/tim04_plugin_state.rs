@@ -4,9 +4,9 @@
 //!
 //! Coverage: describe/bind identity, `SaveState`/`RestoreState`
 //! round-trip through `HostCommand`, lifecycle-observed quality
-//! (Processing → `BestEffort`, stable non-processing →
-//! `Coordinated`/`Quiescent`), `Unsupported` default hooks, and
-//! stale-handle fail-closed after `Destroy`.
+//! (Processing → `BestEffort`, stable non-processing → `Quiescent`;
+//! the requested mode never changes the observation), `Unsupported`
+//! default hooks, and stale-handle fail-closed after `Destroy`.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -285,7 +285,7 @@ fn capture_while_processing_is_best_effort() {
 }
 
 #[test]
-fn capture_after_stop_processing_is_coordinated() {
+fn capture_after_stop_processing_is_quiescent_even_when_coordinated_requested() {
     let mut f = fixture();
     let pid = ProcessorId::new(1);
     exec(
@@ -295,7 +295,7 @@ fn capture_after_stop_processing_is_coordinated() {
         },
     );
     let capture = f.state.capture(pid, CaptureMode::Coordinated).unwrap();
-    assert_eq!(capture.achieved, StateCaptureQuality::Coordinated);
+    assert_eq!(capture.achieved, StateCaptureQuality::Quiescent);
     assert!(!capture.observation.processing);
     assert!(capture.observation.stable_boundary);
 }
@@ -314,6 +314,36 @@ fn capture_with_quiescent_mode_records_quiescent() {
         .capture(ProcessorId::new(1), CaptureMode::Quiescent)
         .unwrap();
     assert_eq!(capture.achieved, StateCaptureQuality::Quiescent);
+}
+
+#[test]
+fn capture_mode_does_not_change_observed_quality() {
+    let mut f = fixture();
+    let pid = ProcessorId::new(1);
+    let processing_baseline = f.state.capture(pid, CaptureMode::Coordinated).unwrap();
+    for mode in [CaptureMode::Quiescent, CaptureMode::BestEffort] {
+        let capture = f.state.capture(pid, mode).unwrap();
+        assert_eq!(capture.achieved, processing_baseline.achieved);
+        assert_eq!(capture.observation, processing_baseline.observation);
+    }
+    assert_eq!(
+        processing_baseline.achieved,
+        StateCaptureQuality::BestEffort
+    );
+
+    exec(
+        &mut f.host.borrow_mut(),
+        HostCommand::StopProcessing {
+            handle: f.state_handle,
+        },
+    );
+    let baseline = f.state.capture(pid, CaptureMode::Coordinated).unwrap();
+    for mode in [CaptureMode::Quiescent, CaptureMode::BestEffort] {
+        let capture = f.state.capture(pid, mode).unwrap();
+        assert_eq!(capture.achieved, baseline.achieved);
+        assert_eq!(capture.observation, baseline.observation);
+    }
+    assert_eq!(baseline.achieved, StateCaptureQuality::Quiescent);
 }
 
 #[test]

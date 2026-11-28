@@ -77,6 +77,12 @@ pub enum PluginStateProjectionError {
         /// Schema version found.
         found: u32,
     },
+    /// A captured record lacks the binding identity needed to reject
+    /// stale plugin-state evidence.
+    MissingCaptureBinding {
+        /// Owning processor.
+        processor_id: ProcessorId,
+    },
     /// A processor appears more than once in one manifest.
     DuplicateProcessor {
         /// Duplicated processor.
@@ -139,6 +145,10 @@ impl fmt::Display for PluginStateProjectionError {
             Self::UnsupportedSchema { name, found } => write!(
                 f,
                 "unsupported plugin state manifest schema {found} in {name:?} (supported {PLUGIN_STATE_SCHEMA_VERSION})"
+            ),
+            Self::MissingCaptureBinding { processor_id } => write!(
+                f,
+                "captured plugin state record for {processor_id} lacks binding identity"
             ),
             Self::DuplicateProcessor { processor_id } => {
                 write!(f, "duplicate plugin state record for {processor_id}")
@@ -301,10 +311,18 @@ impl PersistedPluginStateProjection {
                     blob_len,
                 } => {
                     validate_blob(store, entry.processor_id, blob_digest, blob_len)?;
-                    PluginStateProbeOutcome::Captured(PluginStateEvidence {
-                        digest: blob_digest,
-                        quality,
-                    })
+                    let Some(binding) = entry.binding.clone() else {
+                        return Err(PluginStateProjectionError::MissingCaptureBinding {
+                            processor_id: entry.processor_id,
+                        });
+                    };
+                    PluginStateProbeOutcome::Captured {
+                        evidence: PluginStateEvidence {
+                            digest: blob_digest,
+                            quality,
+                        },
+                        binding: Some(binding),
+                    }
                 }
                 PluginStateOutcome::Unsupported => PluginStateProbeOutcome::Unsupported,
                 PluginStateOutcome::Failed { kind } => PluginStateProbeOutcome::Failed { kind },

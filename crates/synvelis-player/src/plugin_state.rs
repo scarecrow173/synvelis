@@ -215,7 +215,7 @@ impl PluginStatePort for PluginStateHost {
     fn capture(
         &mut self,
         processor: ProcessorId,
-        mode: CaptureMode,
+        _mode: CaptureMode,
     ) -> Result<PluginStateCapture, PluginStateCaptureError> {
         let Some(instance) = self.instances.get(&processor).cloned() else {
             return Err(PluginStateCaptureError::Failed(
@@ -237,12 +237,10 @@ impl PluginStatePort for PluginStateHost {
         let processing = matches!(before, Some(LifecycleState::Processing))
             || matches!(after, Some(LifecycleState::Processing));
         let stable_boundary = before.is_some() && before == after && !processing;
-        let achieved = if !stable_boundary {
-            StateCaptureQuality::BestEffort
-        } else if mode == CaptureMode::Coordinated {
-            StateCaptureQuality::Coordinated
-        } else {
+        let achieved = if stable_boundary {
             StateCaptureQuality::Quiescent
+        } else {
+            StateCaptureQuality::BestEffort
         };
         let observation = CaptureObservation {
             processing,

@@ -253,11 +253,38 @@ pub struct PluginStateQualitySummary {
 }
 
 impl PluginStateQualitySummary {
+    /// `true` when the aggregate counts account for every processor
+    /// record exactly once. Checked subtraction keeps externally
+    /// supplied inconsistent counts fail-closed rather than overflowing.
+    #[must_use]
+    pub const fn internally_consistent(&self) -> bool {
+        self.exact <= self.processors
+            && self.degraded <= self.processors - self.exact
+            && self.unsupported <= self.processors - self.exact - self.degraded
+            && self.failed == self.processors - self.exact - self.degraded - self.unsupported
+    }
+
     /// `true` when every record is exact-eligible — vacuously true
-    /// for a project with no processors (nothing to restore).
+    /// for a project with no processors (nothing to restore). This is
+    /// the authoritative quality rule; callers that know how many
+    /// processors the evidence must cover use
+    /// [`Self::exact_eligible_for_processors`].
     #[must_use]
     pub const fn exact_eligible(&self) -> bool {
-        self.degraded == 0 && self.unsupported == 0 && self.failed == 0
+        self.internally_consistent()
+            && self.exact == self.processors
+            && self.degraded == 0
+            && self.unsupported == 0
+            && self.failed == 0
+    }
+
+    /// `true` only when the evidence is exact-eligible and covers
+    /// exactly `expected_processors`. A zero-count summary is valid
+    /// only for a processor-free project and can never stand in for
+    /// missing coverage of live processors.
+    #[must_use]
+    pub const fn exact_eligible_for_processors(&self, expected_processors: u64) -> bool {
+        self.exact_eligible() && self.processors == expected_processors
     }
 
     fn of(records: &[PluginStateRecord]) -> Self {
@@ -431,7 +458,10 @@ pub trait PluginStatePort {
 
     /// Captures the instance's opaque state. `mode` is the caller's
     /// requested guarantee; the returned [`PluginStateCapture`]
-    /// reports the *achieved* quality and observations.
+    /// reports the *achieved* quality and observations. Implementations
+    /// must not report a stronger quality merely because a stronger mode
+    /// was requested: the same lifecycle/host/plugin observation has the
+    /// same achieved quality for every mode.
     ///
     /// # Errors
     /// [`PluginStateCaptureError::Unsupported`] when the plugin has
