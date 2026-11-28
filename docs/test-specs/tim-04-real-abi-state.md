@@ -113,10 +113,12 @@ capabilityを実測値どおり記録する。
 
 ## Verification commands
 
+`tim04_real_abi_state.rs` の 6 tests は VST3/CLAP fixture cdylib を必要とする artifact-dependent tests である。generic workspace-wide / MSRV lane の対象外とし、正規実行は fixture artifacts を先に build する dedicated opt-in lane `mise run test-tim04-real-abi` とする。coverage は削除せず、同 laneが `--ignored` で 6 tests を実行する。
+
 証拠生成を兼ねる限定実行:
 
 ```sh
-SYNVELIS_TIM04_REAL_ABI_EVIDENCE_DIR=evidence/sv128 mise run test synvelis-player --test tim04_real_abi_state
+SYNVELIS_TIM04_REAL_ABI_EVIDENCE_DIR=evidence/sv128 mise run test-tim04-real-abi
 ```
 
 必須検証lane:
