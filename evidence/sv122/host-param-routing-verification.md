@@ -10,7 +10,7 @@ OS: Windows 11（OS-L1、headless/in-process）
 | 面 | layer / endpoint | 観測 | 結果 |
 | --- | --- | --- | --- |
 | Fader/SendLevel の begin/preview/commit | `syn.control.subscribe` + `syn.control.dispatch`（app headless） | `commit` receipt が `applied` / `base edit`、project `ParameterTarget::base` が Fader=0.625・SendLevel=0.375 になる | Pass（test `strip_and_send_endpoint_authority_survives_history_and_reload`） |
-| Fader/SendLevel の Undo/Redo | `syn.project.undo` / `syn.project.redo` | SendLevel→Fader の順に独立して戻り、redo で同じ target/value に復帰する | Pass（Pass（exit 0）） |
+| Fader/SendLevel の Undo/Redo | `syn.project.undo` / `syn.project.redo` | SendLevel→Fader の順に独立して戻り、redo で同じ target/value に復帰する | Pass（exit 0） |
 | Fader/SendLevel の Save/Reload | `syn.project.save` / `syn.project.reload` + fresh view subscription | 同一 `ParameterTargetId` が残り、reloaded base が initial projection で観測される。`SendConfig.gain_target` は同じ target を指し、第二の persisted gain scalar はない | Pass（同上） |
 | Pan/Mute/Solo authority 観測 | `syn.control.targets` + `syn.control.subscribe` | 3 role が `kind=param` で列挙され、owner が対象 strip、projection normalized が persisted base（Pan=0.5、Mute/Solo=0.0） | Pass（test `pan_mute_solo_endpoint_authority_observation`） |
 | `syn.control.fast_control` の internal target 非使用 | app tests + player ctl_02 | internal target を fast_control 経路に流用していない。player 側では internal target が `UnboundTarget` で plugin ParamId へ届かない | Pass（既存 player tests） |
@@ -32,6 +32,33 @@ OS: Windows 11（OS-L1、headless/in-process）
 | `mise run check synvelis-project` / `lint synvelis-project` / `test synvelis-project` | Pass（exit 0） |
 | `mise run check synvelis-player` / `lint synvelis-player` / `test synvelis-player --test ctl_02 --test sf_xr_01` | 同上 |
 | `mise run check synvelis-app` / `lint synvelis-app` / `test synvelis-app --test binding --test autx07_automation --test pc_c4_06_control_op_surface` | 同上 |
+| main `1ef34192` 取込後の `cargo fmt --package synvelis-project --package synvelis-app -- --check`（補助証拠）と指定 check/lint/test lanes | Pass（全 exit 0。project ctl_02 24 passed、player ctl_02 3 passed / sf_xr_01 2 passed、app 7/12/6 passed） |
+
+## Branch CI 証跡
+
+`ci` workflow は `workflow_dispatch` 専用のため、対象 SHA `52fa62925b063ab26c671a5d0f506dad91e6040b` を `expected_sha` に指定して手動 dispatch した。decisive run は <https://github.com/scarecrow173/synvelis/actions/runs/46122784565> で、run conclusion は `success`。commit check runs も 14/14 `success` であり、workflow run / check run の両方で対象 SHA を確認できる。
+
+| lane | 状態 |
+| --- | --- |
+| `dep-guard` | success |
+| `verify (ubuntu-latest)` | success（`mise run fmt-check` / `check-full` / `lint-full` / `test-full` / Cargo.lock no-diff を含む） |
+| `verify (windows-latest)` | success |
+| `verify-macos` | success |
+| `msrv-verify` | success |
+| `rt-verify` | success |
+| `ui-verify (ubuntu-latest)` / `ui-verify (windows-latest)` / `ui-verify-macos` | success |
+| `gw10-verify (ubuntu-latest)` / `gw10-verify (windows-latest)` / `gw10-verify-macos` | success |
+| `evidence` | success |
+| `ci-summary` | success（expected_sha / github.sha / checkout HEAD の一致を通過） |
+
+先行 run の切り分け:
+
+| run | 対象 SHA | 状態と判断 |
+| --- | --- | --- |
+| <https://github.com/scarecrow173/synvelis/actions/runs/46120887316> | `0114ab23cffaee664649a4cfe96d70f5f714c925` | `verify (ubuntu-latest)` が `mise run fmt-check` で失敗。branch で変更した `pc_c4_06_control_op_surface.rs` の rustfmt 差分なので本 slice 起因。`79c820ec0f6c12374d554f8d3f85e1b9dd378702` で修正済み。後続 lane は superseded/cancelled。 |
+| <https://github.com/scarecrow173/synvelis/actions/runs/46121171867> | `79c820ec0f6c12374d554f8d3f85e1b9dd378702` | fmt/check/lint は通過し `test-full` / `test-msrv` / `test-rt` が artifact-dependent L1 runner 未 build で失敗。同じ失敗が main `3a7e3ed9` の run <https://github.com/scarecrow173/synvelis/actions/runs/46102592025> にあり、本 slice 起因ではない。main `1ef34192`（run <https://github.com/scarecrow173/synvelis/actions/runs/46122126803> は success）の L1 isolation を merge して解消した。 |
+
+なお、CI は immutable な対象 SHA を検証するため、この結果を evidence へ記録した commit 自身の SHA を同じ run が検証することはできない。したがって decisive CI target は `52fa62925b063ab26c671a5d0f506dad91e6040b` であり、この記録 commit はその後の evidence-only delta として扱う。
 
 ## 判断・残課題
 

@@ -1,3 +1,6 @@
 ts	phase	decision	why	evidence	result
 2026-11-28T06:43:14Z	start	started CTL-02 host parameter routing slice	keep a reviewable decision trail for long-running work	worker task_723db1a7ec96	open
 2026-11-28T00:00:00Z	project-tests	added focused CTL-02 project tests before production changes	pin routing atomic failure and automation target identity without duplicating broad existing coverage	crates/synvelis-project/tests/ctl_02.rs	open
+2026-11-28T08:20:00Z	branch-ci	slice 起因の rustfmt 失敗を修正して follow-up CI を dispatch した	branch CI の fmt 失敗が変更済み app test file にあり、lane evidence の前に修正が必要だった	runs 46120887316 and 46121171867	closed
+2026-11-28T08:20:00Z	branch-ci	最終 dispatch 前に upstream の L1 artifact-test isolation を取り込んだ	test-full/msrv/rt の失敗は main baseline の missing-runner 失敗と同一で本 slice 起因ではない	main 1ef34192 and run 46122126803	closed
+2026-11-28T08:20:00Z	branch-ci	対象 SHA 52fa62925b063ab26c671a5d0f506dad91e6040b の成功した branch CI を記録した	completion gate が対象 SHA・run URL・decisive lane 状態を要求する	https://github.com/scarecrow173/synvelis/actions/runs/46122784565	closed
