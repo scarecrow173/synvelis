@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "TIM-03 dynamic musical transport"
 created: "2026-11-27"
-updated: "2026-11-27"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -61,4 +61,4 @@ relations:
 
 ## Canonical lane
 
-`mise run test-tim03-dynamic-musical-transport` は test-only L1 runnerをbuildし、production musical transport integration testを `--test-threads=1` で実行する。同名test binaryがbaseline production evidenceとdynamic evidenceを1回のVST3/CLAP runで出力するため、このentrypointは両 formatのdynamic evidenceを再現する。
+`mise run test-tim03-dynamic-musical-transport` は test-only L1 runnerをbuildし、`#[ignore]` の production musical transport integration testを `--ignored` と `--test-threads=1` で実行する。同名test binaryがbaseline production evidenceとdynamic evidenceを1回のVST3/CLAP runで出力するため、このentrypointは両 formatのdynamic evidenceを再現する。generic workspace-wide / MSRV / RT lane はこの test を実行しない。

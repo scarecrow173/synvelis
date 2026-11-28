@@ -35,3 +35,7 @@ Permission failure を plugin-originated state hook failure と host/store OS/sa
 ## Cases
 
 project unit tests は mock `MatrixStore` で R1–R5 を網羅する。L1 real ABI test は actual RFST bytes を入力に R1/R2/R4/R5/R6/R7 を記録する。全状態操作は non-RT control path に限定する。
+
+## 実行契約
+
+L1 real ABI matrix を実行する `tim04_l1_abi_state.rs` の `l1_permission_fault_matrix_real_rfst` は、test-only runner と VST3/CLAP fixture cdylib を必要とする artifact-dependent test である。generic workspace-wide / MSRV lane の対象外とし、正規実行は dedicated opt-in lane `mise run test-tim04-l1` とする。coverage は削除せず、同 laneが `--ignored` で実行する。

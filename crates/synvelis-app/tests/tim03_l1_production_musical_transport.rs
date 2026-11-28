@@ -642,12 +642,14 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-production-transport`)"]
 fn vst3_production_musical_transport() {
     let (probe, _library) = load_vst3();
     exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-production-transport`)"]
 fn clap_production_musical_transport() {
     let (probe, _library) = load_clap();
     exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);
@@ -1048,12 +1050,14 @@ fn exercise_history(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-dynamic-musical-transport`)"]
 fn vst3_production_tempo_undo_redo() {
     let (probe, _library) = load_vst3();
     exercise_history(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-dynamic-musical-transport`)"]
 fn clap_production_tempo_undo_redo() {
     let (probe, _library) = load_clap();
     exercise_history(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);

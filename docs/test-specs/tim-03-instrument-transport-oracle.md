@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "tim-03-instrument-transport-oracle"
 created: "2026-11-27"
-updated: "2026-11-27"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -74,8 +74,10 @@ Fixture: `crates/synvelis-app/tests/tim03_l1_instrument_transport.rs`、
   pass-through/substituted block、dropped submit に関わる output を fresh evidence に数えない。
 - **IT-11 honesty boundary**: production composition → `PluginNode` → plugin end-to-end
   musical transport は upstream gap により NotRun/Blocked upstream と記録し、Pass にしない。
-- **IT-12 determinism/ordering**: runner build → integration test は
-  `mise run test-tim03-instrument-transport` に束ね、test は `--test-threads=1` で実行する。
+- **IT-12 determinism/ordering**: runner build → integration test は dedicated opt-in lane
+  `mise run test-tim03-instrument-transport` に束ね、test は `--ignored` と `--test-threads=1`
+  で実行する。この artifact-dependent test は generic workspace-wide / MSRV / RT lane の
+  対象外とする。
 
 ## Evidence
 

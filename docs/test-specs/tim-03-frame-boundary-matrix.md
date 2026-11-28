@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "TIM-03 frame/boundary matrix"
 created: "2026-11-27"
-updated: "2026-11-27"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -58,4 +58,4 @@ relations:
 
 ## Canonical lane
 
-`mise run test-tim03-frame-boundary-matrix` は runner build、player matrix integration tests、VST3/CLAP real ABI integration testを `--test-threads=1`で束ねる。
+`mise run test-tim03-frame-boundary-matrix` は runner build、player matrix integration tests、`#[ignore]` の VST3/CLAP real ABI integration testを `--ignored` と `--test-threads=1`で束ねる。real ABI integration testは generic workspace-wide / MSRV / RT lane の対象外であり、headless player matrix tests は従来どおり generic lane から実行できる。
