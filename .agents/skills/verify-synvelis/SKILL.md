@@ -203,6 +203,9 @@ KANI_JOBS=1 mise run test-formal-kani   # rerun K-GJ-03
 KANI_PACKAGE=synvelis-recording \
 KANI_HARNESS=crc32_split_equivalence_bounded \
 KANI_JOBS=1 mise run test-formal-kani   # rerun K-RJ-03
+KANI_PACKAGE=synvelis-recording \
+KANI_HARNESS=session_transitions_exhaustive \
+KANI_JOBS=1 mise run test-formal-kani   # rerun K-RJ-04
 ```
 
 - `test-formal` runs `cargo test --locked … --test formal_journal`
@@ -234,6 +237,7 @@ KANI_JOBS=1 mise run test-formal-kani   # rerun K-RJ-03
   unwinding/bound soundness failures; `scarecrow173/synvelis#659`
   owns that redesign. The honest `not_run` behavior is retained —
   environment absence is never a fake pass.
+- K-RJ-04 selective rerun (`session_transitions_exhaustive`) uses the command above. The practical budget is 300 seconds of Kani Verification Time per proof; because the runner has no built-in timeout, enforce the budget from the invoking shell or supervisor and record the exact invocation, stop method, exit code, and raw output when it fires. Do not treat timeout, external stop, exit 15, or a bare exit 0 as proof success. Pass requires `VERIFICATION:- SUCCESSFUL`, the failed-check count, runner verdict `pass`, exit 0, and a matched harness count consistent with the selected harness. Record Kani Verification Time, runner elapsed, and shell wall-clock separately. If the proof does not run or does not finish, record NotRun plus the best-supported cause class (`compile`, `symex`, `solver`, `memory`, `infrastructure`, or `product_oracle_failure`) without claiming the unimplemented full classifier or unmeasured peak memory. As of slice 4, K-RJ-04 passes after the boundary redesign: proptest-only test code is excluded from Kani codegen via `cfg(not(kani))`, and illegal-transition error text is built from a finite static lookup instead of `format!`; the 4x4/acceptance-gate oracle and product implementation calls are unchanged.
 - sv659 mutation recording procedure: apply exactly one temporary
   production mutation, capture its diff, run canonical
   `mise run test-formal`, restore the file completely, prove the

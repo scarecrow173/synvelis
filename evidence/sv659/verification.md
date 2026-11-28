@@ -173,12 +173,52 @@ fmt の補助確認として短い subst alias から canonical lane を試し�
 
 full lane（全 7 proof 一括実行）、K-RJ-01/K-RJ-02/K-GJ-01/K-RJ-04、heavy replay/round-trip proof、Authorization pure core、Recovery ordering model は本 slice でも実行していない。
 
+## slice 4 の識別情報
+
+- branch: `test/659-session-proof-boundary`
+- base/`origin/main` at start: `a5e29228e6a08940e7396325daab138295a5e894`
+- code/proof sync SHA: `dbddb52f20d8a98e9f5a9d6e1a6571307cfb7659`
+- OS: Windows x64。Kani proof は WSL2 Ubuntu（x86_64、16 logical CPUs、約 32056 MiB、cargo 1.99.0、Kani 0.68.0、CBMC 6.11.0）で実行
+- scope: K-RJ-04 `session_transitions_exhaustive` の solver boundary 再設計と selective proof 実走のみ
+
+## slice 4 — solver cost の切り分け
+
+slice 2 baseline では K-RJ-04 は反例や unwinding assertion を出さず、solver が予算内に完了しない NotRun だった。slice 4 では proptest-only test code と illegal-transition error construction を分けて確認した。
+
+まず proptest-only strategy/test を `cfg(not(kani))` で Kani codegen 対象から外した。この変更だけの selective proof は Pass せず、runner elapsed 336.099s・exit 15 で外部停止した。GOTO pretty-name map の補助抽出では proptest entry は 0 だったが、`fmt` 738、`format` 39、`alloc` 1109 entry が残っていた。したがって proptest-only test code は compile/codegen 上の無関係境界ではあるが、支配的な solver cost ではなかったと記録する。
+
+次に `require_transition` の externally visible error text を保ったまま、16 pair の finite static lookup から同じ message を構成する実装へ変更した。再設計後の GOTO symbol map は total 1603、`fmt` 42、`format` 0、`alloc` 618 entry になり、proof は Verification Time 5.1956944s で完走した。この対照から、支配要因は `format!` 経由の illegal-transition error construction が solver 入力へ入ることだったと記録する。memory は unmeasured であり、OOM killer や WSL VM crash は観測していない。補助抽出は canonical ではなく、canonical proof は mise task である。
+
+## slice 4 — selective proof result
+
+| proof | canonical invocation | verdict | failed checks | Kani Verification Time | runner elapsed | shell wall-clock | raw output |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| K-RJ-04 | `KANI_PACKAGE=synvelis-recording KANI_HARNESS=session_transitions_exhaustive KANI_JOBS=1 mise run test-formal-kani` | Pass | 0/269 failed (4 unreachable) | 5.1956944s | 30.248s | 32s | `slice4-krj04-session-transitions-exhaustive.txt` |
+
+raw output に `VERIFICATION:- SUCCESSFUL` があり、runner verdict は `pass`、exit code は 0、runner JSON の `harnesses_matched` は 1、`harnesses` は `proofs::session_transitions_exhaustive` のみだった。実行は外部 timeout wrapper つきで行ったが、wrapper は発火せず自然終了した。Kani Verification Time、runner elapsed、shell wall-clock は区別する。
+
+この Pass は `SessionState` 4×4 pair、`Created→Open`・`Open→Closed`・`Closed→Finalized` の 3 edge、`accepts_registration` iff `Open`、`accepts_take_verification` iff `Open|Closed` の有限全域だけを示す。recording workflow、crash recovery、永続化 ordering、製品全体へ転用しない。
+
+## slice 4 — canonical verification
+
+| command | OS/environment | exit | result |
+| --- | --- | ---: | --- |
+| `mise run test-formal` | Windows x64 | 0 | Pass。gateway 35/35・recording 15/15。`slice4-redesigned-test-formal.txt` |
+| `KANI_PACKAGE=synvelis-recording KANI_HARNESS=session_transitions_exhaustive KANI_JOBS=1 mise run test-formal-kani` | Windows x64 host / WSL2 Ubuntu | 0 | Pass。上記 selective proof |
+| `mise run check synvelis-recording` | Windows x64 | 0 | Pass。`slice4-canonical-verification.txt` |
+| `mise run lint synvelis-recording` | Windows x64 | 0 | Pass。`slice4-canonical-verification.txt` |
+| `mise run test synvelis-recording` | Windows x64 | 0 | Pass。`slice4-canonical-verification.txt` |
+| `mise run fmt-check` | Windows x64 | 1 | Fail（環境/工具制約）。`os error 206`。コード差分由来の rustfmt 差ではない |
+| `mise exec -- cargo fmt -p synvelis-recording -- --check`（補助証拠、canonical = mise） | Windows x64 | 0 | Pass。canonical fmt lane の失敗を代替しない |
+
+full lane（全 7 proof 一括実行）、K-RJ-01/K-RJ-02/K-GJ-01、Authorization pure core、Recovery ordering model は slice 4 の対象外であり、実行していない。
+
 ## 保証範囲と残件
 
 K-RJ-03 は製品実装 `crc32` と incremental `Crc32` API の局所的な bounded proof であり、全体ジャーナル形式・任意長入力・製品全体へ転用しない。K-RJ-04 が将来 pass しても `SessionState` 4×4 と acceptance gate の有限全域だけの保証であり、recording workflow、crash recovery、永続化 ordering の証明ではない。今回は solver 未完了のため、K-RJ-04 には新しい保証が追加されていない。
 
-残件は K-RJ-01/K-RJ-02/K-GJ-01、K-RJ-04 の solver-bound 原因調査・分割/bound 再設計、Authorization pure-core verification、Recovery ordering model、full cause classifier、peak memory 計測基盤、全件 cost comparison の残り、Sync Commit 整備である。slice 3 の 5 件 mutation matrix は完了し、いずれも killed だったが、これは oracle 検出能力の証拠であって assurance kind の引き上げではない。docs index は Coordinator が統合時に整備する。
+残件は K-RJ-01/K-RJ-02/K-GJ-01、Authorization pure-core verification、Recovery ordering model、full cause classifier、peak memory 計測基盤、全件 cost comparison の残り、Sync Commit 整備である。slice 3 の 5 件 mutation matrix は完了し、いずれも killed だったが、これは oracle 検出能力の証拠であって assurance kind の引き上げではない。docs index は Coordinator が統合時に整備する。
 
 ## Conclusion
 
-slice 1 は scope 内で完了した。slice 2 は selective interface、fail-closed configuration、zero-match fail-closed を実装・確認し、K-RJ-03 を記録された bound 内で完了した。K-RJ-04 は証明を弱めず NotRun/solver と正直に分類した。slice 3 は低コスト selective proof 3 件を再実行して cost を記録し、5 件の mutation matrix を killed として記録したが、Issue #659 全体は未完了であり、この記録は partial slice の証拠である。
+slice 1 は scope 内で完了した。slice 2 は selective interface、fail-closed configuration、zero-match fail-closed を実装・確認し、K-RJ-03 を記録された bound 内で完了した。K-RJ-04 は証明を弱めず NotRun/solver と正直に分類した。slice 3 は低コスト selective proof 3 件を再実行して cost を記録し、5 件の mutation matrix を killed として記録した。slice 4 は K-RJ-04 を有限全域の内側で Pass させたが、Issue #659 全体は未完了であり、この記録は partial slice の証拠である。

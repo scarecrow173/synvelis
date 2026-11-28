@@ -1,0 +1,72 @@
+$ mise run test-formal
+start_utc=2026-11-28T12:58:36Z
+[test-formal] $ cargo test --locked -p synvelis-gateway -p synvelis-recording --test formal_journal
+   Compiling synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv659-session-proof-boundary\crates\synvelis-recording)
+mbx[progress]: 15s elapsed; 0 hits, 1 misses, 0 bypassed, 1 not looked up; ~0s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.29s
+     Running tests\formal_journal\main.rs (target\debug\deps\formal_journal-281bda327062c73a.exe)
+
+running 35 tests
+test policy::descriptor_mismatch_denies_first ... ok
+test policy::create_target_defects_deny ... ok
+test policy::decisions_stay_in_closed_set ... ok
+test policy::effects_recheck_actual_resources_and_classes ... ok
+test encode_frame_layout ... ok
+test policy::coverage_stable_under_repeat_and_dedup ... ok
+test encode_seq0_replays_clean ... ok
+test encode_frame_over_cap_refused ... ok
+test policy::grant_dimension_denies_stay_in_contract ... ok
+test policy::delegated_apply_commit_spend_is_monotone ... ok
+test policy::commit_entry_points_agree ... ok
+test encode_nonzero_seq_is_gap ... ok
+test saved_record_rejects_unknown_field ... ok
+test policy::human_permitted_at_every_stage ... ok
+test policy::unbound_agent_gets_uniform_no_auth ... ok
+test u128_tagged_id_serde_contract ... ok
+test replay_arbitrary_bytes_contract ... ok
+test policy::unresolved_or_uncovered_target_denies ... ok
+test policy::preflight_and_deny_never_spend ... ok
+test trailing_garbage_stops_at_boundary ... ok
+test wire::documented_forbidden_lists_stay_in_product ... ok
+test journal_payload_rejects_unknown_fields ... ok
+test encode_stream_roundtrip ... ok
+test journal_payload_serde_roundtrip ... ok
+test truncation_is_torn_tail_or_boundary_clean ... ok
+test single_byte_corruption_never_verifies_past_it ... ok
+test wire::parse_never_panics_and_errors_are_closed ... ok
+test wire::authority_precedes_implicit_target ... ok
+test wire::accepted_values_satisfy_allowlist_model ... ok
+test wire::missing_required_keys_are_malformed ... ok
+test wire::unknown_nested_keys_are_malformed ... ok
+test wire::authority_fields_rejected ... ok
+test wire::forbidden_keys_nested_under_args_not_rejected ... ok
+test wire::implicit_target_fields_rejected ... ok
+test encode_frame_at_cap_roundtrips ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.19s
+
+     Running tests\formal_journal.rs (target\debug\deps\formal_journal-75beeda7be70e265.exe)
+
+running 15 tests
+test session_acceptance_gates_are_total ... ok
+test session_transition_agrees_with_require ... ok
+test digest_fold_chain_is_deterministic ... ok
+test encode_record_layout ... ok
+test encode_record_seq0_replays ... ok
+test chunk_record_over_cap_refused ... ok
+test encode_record_nonzero_seq_is_gap ... ok
+test crc32_incremental_matches_oneshot ... ok
+test resumed_appender_frames_gap_as_fresh_stream ... ok
+test trailing_garbage_stops_at_boundary ... ok
+test truncation_is_torn_tail_or_boundary_clean ... ok
+test single_byte_corruption_never_verifies_past_it ... ok
+test replay_journal_arbitrary_bytes_contract ... ok
+test appender_stream_roundtrip_and_seq_discipline ... ok
+test chunk_record_at_cap_boundary ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+mbx[cache]: 0 hits, 1 misses, 1 not looked up, 2 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: the sweep found 19.3 TiB logical nobody would miss. nobody has.
+end_utc=2026-11-28T12:58:57Z
+exit_code=0

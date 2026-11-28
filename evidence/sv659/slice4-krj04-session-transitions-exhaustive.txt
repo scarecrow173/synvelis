@@ -1,0 +1,784 @@
+$ timeout -k 5s 360s env KANI_PACKAGE=synvelis-recording KANI_HARNESS=session_transitions_exhaustive KANI_JOBS=1 mise run test-formal-kani
+note: canonical invocation wrapped externally only to enforce the 300s proof budget; wrapper does not alter Kani arguments
+start_utc=2026-11-28T12:59:18Z
+[test-formal-kani] $ node tools/run-formal-kani.mjs
+[test-formal-kani] lane=WSL2 distro=Ubuntu repo=/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary packages=synvelis-recording harness=session_transitions_exhaustive jobs=1
+Kani Rust Verifier 0.68.0 (cargo plugin)
+CBMC 6.11.0
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused imports: `ChunkRecord`, `HEADER_LEN`, `JournalAppender`, `JournalSpan`, `MAGIC`, and `VERSION`
+  --> crates/synvelis-recording/tests/formal_journal.rs:40:23
+   |
+40 |     CheckpointRecord, ChunkRecord, FinalizeOutcome, FinalizeRecord, HEADER_LEN, Journ...ender,
+   |                       ^^^^^^^^^^^                                   ^^^^^^^^^^  ^^^^^...^^^^^
+41 |     JournalSpan, MAGIC, RecordPayload, StopReason, VERSION, encode_record, replay_journal,
+   |     ^^^^^^^^^^^  ^^^^^                             ^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `IntegrityDigest` and `digest_fold`
+  --> crates/synvelis-recording/tests/formal_journal.rs:44:12
+   |
+44 | ...2, Integ...igest, accepts_registration, accepts_take_verification, crc32, digest_fold,
+   |       ^^^^^...^^^^^                                                          ^^^^^^^^^^^
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: Found the following unsupported constructs:
+             - caller_location (1)
+             - foreign function (2)
+
+         Verification will fail if one or more of these constructs is reachable.
+         See https://model-checking.github.io/kani/rust-feature-support.html for more details.
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: unused variable: `i`
+    --> crates/synvelis-recording/tests/common/mod.rs:1315:10
+     |
+1315 | ...or (i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter()....
+     |        ^
+1316 | ...   let v = f32::from_le_bytes(*bytes);
+1317 | ...   asser...{i}");
+     |       -----...----- you might have meant to use string interpolation in this string literal
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+help: if this is intentional, prefix it with an underscore
+     |
+1315 |     for (_i, bytes) in cap.media[..journaled].as_chunks::<4>().0.iter().enumerate() {
+     |          +
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | ...re(register_tool)]
+  |       ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+Checking harness proofs::session_transitions_exhaustive...
+
+VERIFICATION RESULT:
+ ** 0 of 269 failed (4 unreachable)
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 5.1956944s
+
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.37s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.65s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.25s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.96s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.92s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.88s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.99s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.76s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.97s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.94s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.90s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.08s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.81s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.82s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.02s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.86s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.92s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.84s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.89s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.75s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.75s
+   Compiling synvelis-recording v0.1.0 (/mnt/g/orca/workspaces/synvelis/sv659-session-proof-boundary/crates/synvelis-recording)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.83s
+{"lane":"test-formal-kani","verdict":"pass","reason":"WSL2 (Ubuntu) cargo kani verification succeeded","package":"synvelis-recording","packages":["synvelis-recording"],"harness":"session_transitions_exhaustive","jobs":1,"environment":{"kind":"wsl2","distro":"Ubuntu"},"elapsed_seconds":30.248,"exit_code":0,"harnesses_matched":1,"harnesses":["proofs::session_transitions_exhaustive"]}
+end_utc=2026-11-28T12:59:50Z
+shell_exit=0
+shell_elapsed_seconds=32

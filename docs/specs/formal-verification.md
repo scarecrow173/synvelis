@@ -348,6 +348,16 @@ Specification の再構成と証跡/手順分離は引き続き `scarecrow173/sy
 - machine-readable な正本は `evidence/sv659/formal-proof-runs.jsonl`、`evidence/sv659/mutation-runs.jsonl`、`evidence/sv659/cost-mutation-matrix.json` とする。historical baseline として sv601 の K-GJ-02 45.5s・K-GJ-03 31.4s、slice2 の K-RJ-03 282.0517s/310.115s を併記するが、環境差・cache 状態差から性能因果は断定しない。
 - full lane（全 7 proof 一括実行）、K-RJ-01/K-RJ-02/K-GJ-01/K-RJ-04、Authorization pure core、Recovery ordering model は本 slice でも実行していない。
 
+## synvelis#659 slice 4 の同期点（2026-11-28）
+
+本節は K-RJ-04 `session_transitions_exhaustive` の boundary 再設計、実走結果、再実行方法だけを同期する。Verification Specification 全体の再構成は引き続き `scarecrow173/synvelis#662` に委譲する。
+
+- selective rerun は `KANI_PACKAGE=synvelis-recording KANI_HARNESS=session_transitions_exhaustive KANI_JOBS=1 mise run test-formal-kani` である。slice 4 の実行では runner が timeout を持たないため shell 側の外部 wrapper で budget を監視したが、wrapper は発火せず自然終了した。Pass 判定は raw output の `VERIFICATION:- SUCCESSFUL`、0/269 failed（4 unreachable）、runner verdict `pass`、exit 0、runner JSON `harnesses_matched=1` である。
+- 結果は sync `dbddb52f20d8a98e9f5a9d6e1a6571307cfb7659`・WSL2 Ubuntu・Kani 0.68.0・CBMC 6.11.0 で Pass、Verification Time 5.1956944s、runner wall-clock 30.248s、shell wall-clock 32s だった。runner/shell の時間には compile/loading を含むため Verification Time と混ぜない。
+- boundary は 2 層である。test-only 側では proptest strategy・Property Test・concrete boundary test を `cfg(not(kani))` で Kani codegen 対象から外すが、通常の `mise run test-formal` では同じ 15 件を維持する。製品側では `require_transition` が返す illegal-transition error text を有限 static lookup から構成する。文字列契約、状態数、3 forward edge、acceptance gate、harness 名、`kani::unwind(8)` は変えない。
+- 切り分けの結果、proptest-only test code は solver 支配因ではなかった。cfg-only でも proof は完了しなかった。支配要因は `format!` 経由の illegal-transition error construction で、GOTO symbol map では `format` 39 entry・`fmt` 738 entry・`alloc` 1109 entry だったものが、再設計後は `format` 0・`fmt` 42・`alloc` 618 へ減り、proof は 5.1956944s で完走した。peak memory は計測基盤がないため unmeasured とする。
+- Pass の保証は `SessionState` 4×4 pair と acceptance gate の有限全域に限る。recording workflow、crash recovery、永続化 ordering、製品全体へ転用しない。
+
 ## Tool-fit 候補評価（再設計は synvelis#659）
 
 以下は固定順序ではなく、Property が要求する保証強度に対する
