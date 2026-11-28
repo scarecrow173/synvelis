@@ -533,3 +533,4 @@ Directory: `docs/test-specs`
 | TESTSPEC-r6Qw3Ln8Vx2Kr5TyPmD7 | TIM-03 production musical transport | approved | [tim-03-production-musical-transport.md](./tim-03-production-musical-transport.md) |
 | TESTSPEC-dynTm03Ew8Ln7Vx5Kr | TIM-03 dynamic musical transport | approved | [tim-03-dynamic-musical-transport.md](./tim-03-dynamic-musical-transport.md) |
 | TESTSPEC-fbS127nQw7Ln9KrTyVzE | TIM-03 frame/boundary matrix | approved | [tim-03-frame-boundary-matrix.md](./tim-03-frame-boundary-matrix.md) |
+| TESTSPEC-tm03Ts127UndoRedo | TIM-03 tempo undo/redo identity | approved | [tim-03-dynamic-tempo-undo-redo.md](./tim-03-dynamic-tempo-undo-redo.md) |

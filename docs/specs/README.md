@@ -274,3 +274,4 @@ Directory: `docs/specs`
 | SPEC-p7Mx2Qw9Ln4Kr8TyVzD6 | TIM-03 production musical transport | approved | [tim-03-production-musical-transport.md](./tim-03-production-musical-transport.md) |
 | SPEC-d7Tm03DynQw8Ln4Vx2Kr | TIM-03 dynamic musical transport | approved | [tim-03-dynamic-musical-transport.md](./tim-03-dynamic-musical-transport.md) |
 | SPEC-fbM127xQw8Ln2KrTyVzA | TIM-03 frame/boundary matrix | approved | [tim-03-frame-boundary-matrix.md](./tim-03-frame-boundary-matrix.md) |
+| SPEC-tm03Sr127UndoRedo | TIM-03 tempo undo/redo identity | approved | [tim-03-dynamic-tempo-undo-redo.md](./tim-03-dynamic-tempo-undo-redo.md) |
