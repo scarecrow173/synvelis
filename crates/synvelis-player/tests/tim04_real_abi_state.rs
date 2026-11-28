@@ -1014,11 +1014,9 @@ fn artifact_resolution_and_scan_surface_fail_closed() {
     }
 }
 
-fn expected_quality(processing: bool, mode: CaptureMode) -> StateCaptureQuality {
+fn expected_quality(processing: bool) -> StateCaptureQuality {
     if processing {
         StateCaptureQuality::BestEffort
-    } else if mode == CaptureMode::Coordinated {
-        StateCaptureQuality::Coordinated
     } else {
         StateCaptureQuality::Quiescent
     }
@@ -1064,7 +1062,7 @@ fn capability_matrix_is_measured_for_real_test_plugins() {
                         Ok(capture) => {
                             let parsed = parse_state_blob(&capture.blob, format, plugin_name);
                             let expected_len = expected_blob_len(format, plugin_name);
-                            let quality_expected = expected_quality(processing, mode);
+                            let quality_expected = expected_quality(processing);
                             let pass = is_stateful
                                 && capture.achieved == quality_expected
                                 && capture.blob.len() == expected_len

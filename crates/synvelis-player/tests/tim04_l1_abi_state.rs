@@ -1020,14 +1020,14 @@ fn l1_scan_lifecycle_and_capture_quality_matrix() {
             .port_mut()
             .capture(sp, CaptureMode::Coordinated)
             .unwrap();
-        assert_eq!(stopped.achieved, StateCaptureQuality::Coordinated);
+        assert_eq!(stopped.achieved, StateCaptureQuality::Quiescent);
         assert!(!stopped.observation.processing);
         assert!(stopped.observation.stable_boundary);
         parse_rfst(&stopped.blob);
         write_evidence(
             &format!("{}_stateful_stopped_capture", format.label()),
             "Pass",
-            "stable stopped boundary captures Coordinated",
+            "stable stopped boundary captures Quiescent",
             &environment(format, sd, 5000),
             &json!({"quality":format!("{:?}",stopped.achieved),"blob_len":stopped.blob.len(),"blob_sha256":sha256_hex(&stopped.blob),"observation":format!("{:?}",stopped.observation)}),
         );
@@ -1070,10 +1070,7 @@ fn l1_stateful_save_mutate_restore_save_roundtrip() {
         let parsed = parse_rfst(&initial_bytes);
         assert_eq!(parsed.gain, 1.0);
         assert_eq!(initial_len, initial_bytes.len() as u64);
-        assert!(matches!(
-            initial_quality,
-            StateCaptureQuality::Coordinated | StateCaptureQuality::Quiescent
-        ));
+        assert_eq!(initial_quality, StateCaptureQuality::Quiescent);
         host.borrow_mut()
             .execute(HostCommand::StartProcessing {
                 handle: instance.handle,
@@ -1297,10 +1294,7 @@ fn l1_permission_fault_matrix_real_rfst() {
             .expect("captured real RFST blob")
             .clone();
         let parsed = parse_rfst(&input_bytes);
-        assert!(matches!(
-            input_quality,
-            StateCaptureQuality::Coordinated | StateCaptureQuality::Quiescent
-        ));
+        assert_eq!(input_quality, StateCaptureQuality::Quiescent);
         let input_evidence = json!({
             "len": input_bytes.len(),
             "sha256": sha256_hex(&input_bytes),
