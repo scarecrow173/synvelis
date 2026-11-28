@@ -33,6 +33,7 @@
 //! bounds and assumptions are documented in
 //! `docs/specs/formal-verification.md`.
 
+#[cfg(not(kani))]
 use proptest::prelude::*;
 use synvelis_project::SessionState;
 use synvelis_recording::journal::{
@@ -49,6 +50,7 @@ use synvelis_recording::{
 /// Arbitrary `JournalSpan`. Bounded structurally by the encoder
 /// contract — span counts stay far below the `u16` count-field cap,
 /// whose overflow path gets its own dedicated `#[test]`.
+#[cfg(not(kani))]
 fn arb_journal_span() -> impl Strategy<Value = JournalSpan> {
     (
         any::<u32>(),
@@ -82,6 +84,7 @@ fn arb_journal_span() -> impl Strategy<Value = JournalSpan> {
         )
 }
 
+#[cfg(not(kani))]
 fn arb_chunk_record() -> impl Strategy<Value = ChunkRecord> {
     (
         (
@@ -116,6 +119,7 @@ fn arb_chunk_record() -> impl Strategy<Value = ChunkRecord> {
         )
 }
 
+#[cfg(not(kani))]
 fn arb_checkpoint_record() -> impl Strategy<Value = CheckpointRecord> {
     (
         any::<u64>(),
@@ -137,6 +141,7 @@ fn arb_checkpoint_record() -> impl Strategy<Value = CheckpointRecord> {
         )
 }
 
+#[cfg(not(kani))]
 fn arb_finalize_record() -> impl Strategy<Value = FinalizeRecord> {
     (any::<u64>(), any::<u64>(), any::<u64>(), any::<bool>()).prop_map(
         |(media_len, source_frames, digest_fold, partial)| FinalizeRecord {
@@ -153,6 +158,7 @@ fn arb_finalize_record() -> impl Strategy<Value = FinalizeRecord> {
 }
 
 /// All three record kinds, with bounded span vectors.
+#[cfg(not(kani))]
 fn arb_record_payload() -> impl Strategy<Value = RecordPayload> {
     prop_oneof![
         arb_chunk_record().prop_map(RecordPayload::Chunk),
@@ -163,6 +169,7 @@ fn arb_record_payload() -> impl Strategy<Value = RecordPayload> {
 
 /// A stream of encoded records with contiguous seq from 0, plus the
 /// byte offsets where each record starts.
+#[cfg(not(kani))]
 fn encode_stream(payloads: &[RecordPayload]) -> (Vec<u8>, Vec<usize>) {
     let mut stream = Vec::new();
     let mut starts = Vec::new();
@@ -174,6 +181,7 @@ fn encode_stream(payloads: &[RecordPayload]) -> (Vec<u8>, Vec<usize>) {
     (stream, starts)
 }
 
+#[cfg(not(kani))]
 fn arb_state() -> impl Strategy<Value = SessionState> {
     prop::sample::select(vec![
         SessionState::Created,
@@ -183,6 +191,7 @@ fn arb_state() -> impl Strategy<Value = SessionState> {
     ])
 }
 
+#[cfg(not(kani))]
 proptest! {
     /// For any byte input `replay_journal` terminates without panic,
     /// `stop` stays in the closed `StopReason` set, `prefix_len` never
@@ -448,6 +457,12 @@ proptest! {
     fn session_transition_agrees_with_require(from in arb_state(), to in arb_state()) {
         let legal = legal_transition(from, to);
         prop_assert_eq!(legal, require_transition(from, to).is_ok());
+        if !legal {
+            prop_assert_eq!(
+                require_transition(from, to).unwrap_err(),
+                synvelis_project::Error::IllegalTransition(format!("{from:?} -> {to:?}")),
+            );
+        }
         let forward_edge = matches!(
             (from, to),
             (SessionState::Created, SessionState::Open)
@@ -473,6 +488,7 @@ proptest! {
 /// A Chunk whose span list pushes the record past `MAX_PAYLOAD` is
 /// refused by `encode_record` — the `u16` count field saturates first,
 /// but the byte size alone already exceeds the frame cap.
+#[cfg(not(kani))]
 #[test]
 fn chunk_record_over_cap_refused() {
     // 58-byte fixed payload + 48 bytes per span; 30000 spans ⇒
@@ -507,6 +523,7 @@ fn chunk_record_over_cap_refused() {
 /// The exact span-count boundary: the largest span list that still
 /// fits under `MAX_PAYLOAD` encodes and round-trips; one span more is
 /// refused.
+#[cfg(not(kani))]
 #[test]
 fn chunk_record_at_cap_boundary() {
     // fixed fields = 58 bytes; span = 48 bytes.
