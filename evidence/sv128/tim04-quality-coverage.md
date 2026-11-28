@@ -69,3 +69,19 @@ local verification は merge 後の統合 CI 証拠ではない。
 これらの実 ABI / L1 tests は本 slice では実行していない（NotRun）。未更新の期待値が残るため、
 実行すると stable stopped `Coordinated` 期待との差異で Fail になる可能性が高い。PCM oracle、
 3OS、macOS/Linux、GUI、VCS、AudioLens、市販 plugin、実 runtime endpoint も本 slice では NotRun。
+
+## Completion gate follow-up（sv#655 merge 後）
+
+- `origin/main` `1ef341920cfd6b61ec4a27e54531f2c59611f6c6`（sv#655 merge commit）を
+  merge commit `a58a1202cb52f24707d3fc31ed705b77a799d6e2` として branch へ取り込んだ。
+  競合はなかった。sv#655 は artifact-dependent L1/real ABI test を `#[ignore]` 化し、
+  dedicated lane `mise run test-tim04-l1` / `mise run test-tim04-real-abi` へ分離したが、
+  quality expectation 自体は更新していない。
+- したがって semantic gap は残る。dedicated lane を実行すると stable stopped captureで
+  `Coordinated` を期待する箇所が、root-cause 修正後の観測 `Quiescent` と矛盾する。
+  lease 外ファイルは変更せず、必要な follow-up は前節に記録したとおりである。
+- `library_browser` parallel import failure の切り分け: 初回 `mise run test-rt` では
+  6件が timeout したが、serial rerun は 8/8 Pass、merge後の default parallel rerun も
+  8/8 Passだった。決定的な parallel-only failure ではなく、parallel 実行時の resource/timing に
+  依存する flaky failure と判断する。最終 `mise run test-rt` は merge後 branch で exit code 0。同じ canonical run内で `library_browser` の rt_ 8件も Passした。
+- branch CI: run https://github.com/scarecrow173/synvelis/actions/runs/46124745264 を code head `a58a1202cb52f24707d3fc31ed705b77a799d6e2` と `expected_sha` 一致で dispatch した。run 完了時点の decisive lane 状態は本節へ追記する。なお run URL/結果を evidence へ記録する commit は evidence-only であり、code head の検証対象を変えない。
