@@ -9,7 +9,8 @@ command/evidence logs: `evidence/sv127/core-semantics/`（`*.log` は gitignore 
 
 - branch: `feat/127-tim03-core-semantics`
 - base SHA during local verification: `3a7e3ed9b17aebb236acde9bdce125abc721cbe0`（検証開始時点の `origin/main` と一致。`git fetch origin main` exit 0、merge-base 確認済み）
-- implementation / manual branch CI target SHA: `8395be14f659165041ffcf269a86c2c2340b44f7`（`feat/127-tim03-core-semantics` の implementation commit）
+- implementation commit: `8395be14f659165041ffcf269a86c2c2340b44f7`（`feat/127-tim03-core-semantics` の TIM-03 implementation commit）
+- final manual branch CI target SHA: `6187ce12907652f5c61980c80813fa8e76573bf1`（`fix(ci): isolate artifact-dependent L1 tests (#696)` を含む `origin/main` `1ef341920cfd6b61ec4a27e54531f2c59611f6c6` を merge し、evidence whitespace fix を載せた pushed head。後続の evidence-only commit と混同しない）
 - OS/Arch: Windows / x86_64
 - worktree: `G:\orca\workspaces\synvelis\sv127-tim03-core-semantics`
 - ruviform resolved revision: `511e1a7944c35797942ba065c092b9263067c48a`（pin/lockfile/vendor は未変更）
@@ -72,38 +73,45 @@ machine-readable command summary: `evidence/sv127/core-semantics/canonical-resul
 
 ## Branch CI（manual workflow_dispatch）
 
-coordinator の completion-gate 指示により、`ci.yml`（`workflow_dispatch` 専用）を target SHA `8395be14f659165041ffcf269a86c2c2340b44f7` で手動 dispatch した。run は https://github.com/scarecrow173/synvelis/actions/runs/46122564406 であり、`ci-summary` の `verify-sha` step が `expected_sha == github.sha == checked-out HEAD` の3点一致を確認した。この evidence 追記 commit は Rust source/test semantics を変えない metadata-only の後続 commitであり、branch CI が検証した target SHA と混同しない。
+### final target SHA（`#696` merge 後）
 
-run conclusion は **failure** であり、Pass として記録しない。decisive lane は `evidence`（required-context 互換の pr-mode gate）と `ci-summary`（macOS leg と `evidence` を含む Full CI verdict）で、両方とも failureだった。
+coordinator の completion-gate follow-up に従い、`fix(ci): isolate artifact-dependent L1 tests (#696)` を含む `origin/main` `1ef341920cfd6b61ec4a27e54531f2c59611f6c6` を conflict なしで merge し（merge commit `1b119ef0a3a59dcb79426f288985a84cc41f54fe`）、軽量検証 `cargo check --locked --all-targets -p synvelis-player` exit 0（canonical ではなく merge artifact の補助確認）のうえ、evidence trailing whitespace fix を含む pushed head `6187ce12907652f5c61980c80813fa8e76573bf1` を target に `ci.yml` を手動 dispatch した。run は https://github.com/scarecrow173/synvelis/actions/runs/46125438476 である。
 
-| lane | conclusion | decisive/scope classification | 観測 |
+この evidence 更新自体は Rust source/test semantics を変えない metadata-only の後続 commitであり、branch CI が検証した target SHA `6187ce12907652f5c61980c80813fa8e76573bf1` と混同しない。
+
+run の最終 conclusion は **success**（run attempt 2。初回 attempt で失敗した 2 job のみ `gh run rerun --failed` で再実行し、同一 SHA・同一 source diff で success に転じた）。`ci-summary` job log の `verify-sha` は `EXPECTED_SHA=6187ce12907652f5c61980c80813fa8e76573bf1` / workflow revision / checked-out HEAD の3点一致を確認した。decisive lane は両方 success であり、これが本 slice の exact target SHA に対する branch CI verdict である。
+
+| lane | final conclusion | job | 観測 |
 | --- | --- | --- | --- |
-| `dep-guard` | success | Pass（supporting） | ruviform dependency guard 成功 |
-| `gw10-verify`（ubuntu/windows/macOS） | success ×3 | Pass（supporting） | GW-10 harness 3OS 成功 |
-| `ui-verify`（ubuntu/windows）・`ui-verify-macos` | success ×3 | Pass（supporting） | UI check/test/build 系成功 |
-| `verify (ubuntu-latest)` | failure | Fail / pre-existing out-of-scope infrastructure-harness | `mise run test-full` が `pc_c4_l1_vst3_real_abi_binding` / `pc_c4_l1_clap_real_abi_binding` で exit 101。両 test は `synvelis-plugin-test-*-l1-runner` artifact missing で panic |
-| `verify (windows-latest)` | failure | Fail / pre-existing out-of-scope infrastructure-harness | Ubuntu と同じ `pc_c4_l1_*` artifact missing。Windows runner でも `target\ci\synvelis-plugin-test-*-l1-runner.exe` 不在 |
-| `verify-macos` | failure | Fail / pre-existing out-of-scope infrastructure-harness | Ubuntu と同じ `pc_c4_l1_*` artifact missing。Full CI では required leg なので `ci-summary` failure に含まれる |
-| `rt-verify` | failure | Fail / pre-existing out-of-scope infrastructure-harness | `mise run test-rt` が `vst3_instrument_transport_clicks` / `clap_instrument_transport_clicks` で exit 101。`target/debug/synvelis-plugin-test-*-l1-runner` artifact missing |
-| `msrv-verify` | failure | Fail / pre-existing out-of-scope infrastructure-harness | Rust 1.89 build/test は `pc_c4_l1_*` artifact missing に到達するまで進行。MSRV compile failure は観測されなかったが、workspace test は `synvelis-app` failure で停止し、本 slice test 未到達のまま同じ artifact missing で exit 101 |
-| `evidence` | failure | decisive lane failure | pr-mode gate が `verify (ubuntu-latest)`、`verify (windows-latest)`、`rt-verify`、`msrv-verify` を expected Pass / actual fail と照合 |
-| `ci-summary` | failure | decisive lane failure | Full CI gate が上記4 lane、`verify-macos`、および `evidence` failure を expected Pass / actual fail と照合。SHA contract 自体は一致 |
+| `evidence` | **success** | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140932183033 | required-context 互換 pr-mode gate Pass |
+| `ci-summary` | **success** | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140932239574 | Full CI gate Pass。`verify-sha` 3点一致 |
+| `verify (ubuntu-latest)` | success | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924740878 | `test-full` Pass。`tim03_sw_11` / `tim03_sw_12` が ok |
+| `verify (windows-latest)` | success（failed-job rerun 後） | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924708422 | `test-full` Pass。`tim03_sw_11` / `tim03_sw_12` が ok。初回 flake test `pending_commit_unreadable_manifest_degrades_recoverable` も ok |
+| `verify-macos` | success | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924746516 | macOS leg は PR-mode aggregation から物理分離されているが Full CI accounting では Pass |
+| `rt-verify` | success（failed-job rerun 後） | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924708132 | `rt_process_boundary_hot_path_alloc_free` ok。初回 flake test `restart_replays_pending_commit_to_committed_live` も ok |
+| `msrv-verify` | success | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924709648 | MSRV lane Pass |
+| `dep-guard` | success | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924729794 | ruviform dependency guard Pass |
+| `gw10-verify`（ubuntu/windows/macOS） | success ×3 | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924709708 / https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924709509 / https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924708999 | GW-10 harness 3OS Pass |
+| `ui-verify`（ubuntu/windows）・`ui-verify-macos` | success ×3 | https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924733080 / https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924745362 / https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924748139 | UI check/test/build 系 Pass |
 
-### branch CI failure の因果切り分け
+branch CI の `verify` success は artifact-dependent real ABI/L1 lane の positive evidence ではない。`#696` により artifact-dependent tests は通常 lane から分離または ignore されており、real ABI/app L1/GUI/EXT-L3 は従来どおり本 slice の scope-out / NotRun である。
 
-この failure は本 slice 起因ではないと判断した。根拠は次の通り。
+### 初回 attempt failure の因果切り分け（superseded by successful rerun）
 
-1. 本 slice の diff は `synvelis-player` の driver/dispatch/process-boundary、lease 内 session-wiring test、および `evidence/sv127/` に限定される。失敗した test はいずれも lease外の artifact-dependent `synvelis-app` real ABI/L1 test で、panic message も product behavior ではなく runner executable 不在を示す。
-2. base SHA `3a7e3ed9b17aebb236acde9bdce125abc721cbe0` に対する既存 main run https://github.com/scarecrow173/synvelis/actions/runs/46102592025 でも、本 sliceを含まない同一 base で `verify` 3OS・`rt-verify`・`msrv-verify`・`evidence`・`ci-summary` が同じ artifact missing 系 failure だった。
-3. 現在の `origin/main` は `1ef341920cfd6b61ec4a27e54531f2c59611f6c6`（`fix(ci): isolate artifact-dependent L1 tests (#696)`）へ進んでおり、artifact-dependent L1 tests の CI 分離が別 slice で main へ入っている。target SHA `8395be14f659165041ffcf269a86c2c2340b44f7` はこの fix を祖先に含まない（`git merge-base --is-ancestor 1ef341920cfd6b61ec4a27e54531f2c59611f6c6 HEAD` exit 1）。
-4. branch CI の workspace test log には `tim03_session_wiring` / SW-11 / SW-12 の実行行が出ていない。`synvelis-app` の artifact-dependent test failure で workspace test が先に停止するためであり、branch CI を player test の Pass evidence には計上しない。player test の Pass evidence は local canonical `mise run test synvelis-player` exit 0 のみに限定する。
-5. 失敗は sv#655 で追跡される CI harness/artifact 前提の領域であり、本 lease では `.github/**`、`mise.toml`、`synvelis-app/**`、L1 runner を変更できない。恒久 workaround を player 側へ入れていない。
+同一 run の初回 attempt では次の 2 job が failure だった。これらを隠さず flake として記録するが、最終 verdict には借用しない。
 
-したがって branch CI は exact target SHA に対する honest negative evidence であり、slice の implementation/test failure ではない。統合時は `#696` を含む最新 main を取り込んだ head の再 dispatch、または merge 後 main SHA の CI evidence が必要である。この run の red を緑として扱わない。
+1. `verify (windows-latest)` job `140918885428`: `crates/synvelis-app/tests/sv646_pending_commit_replay.rs:127` の `pending_commit_unreadable_manifest_degrades_recoverable` が `import 24 manifest never reached committed` で failure。failed-job rerun 後の job `140924708422` では同一 test が `ok`。
+2. `rt-verify` job `140918885525`: `crates/synvelis-app/tests/sv643_jobs_ledger.rs:255` の `restart_replays_pending_commit_to_committed_live` が manifest stage `published` vs expected `committed` で failure。failed-job rerun 後の job `140924708132` では同一 test が `ok`。
+
+これらは本 slice 起因ではないと判断した。根拠は、(1) 本 slice の net diff が `synvelis-player` と `evidence/sv127/` に限定され、失敗 test が lease外の synvelis-app asset-library import replay / jobs ledger timing testであること、(2) `#696` merge commit `1ef341920cfd6b61ec4a27e54531f2c59611f6c6` 単体の main run https://github.com/scarecrow173/synvelis/actions/runs/46122126803 が全 lane success で、同じ test が main log でも `ok` だったこと、(3) 同一 SHA・同一 source diff の failed-job rerun で両 lane が success に転じたこと、(4) 同種の sv#646 polling timeout flake が `evidence/sv127/real-abi-vst3-tuid-platform-byte-order.md` にも既記録であることである。`rt-verify` で `restart_replays...` が選ばれるのは broad substring filter `rt_` が `restart_` に部分的に一致する test-selection 上の影響でもあり、TIM-03 player RT semantics の failure ではない。
+
+### previous target SHA（`#696` merge 前、superseded）
+
+initial completion-gate では target SHA `8395be14f659165041ffcf269a86c2c2340b44f7` を https://github.com/scarecrow173/synvelis/actions/runs/46122564406 で検証したが、この head は `#696` を祖先に含まず、`verify` 3OS / `rt-verify` / `msrv-verify` / `evidence` / `ci-summary` が artifact-dependent `synvelis-app` L1 runner executable missing で failure だった。base SHA `3a7e3ed9b17aebb236acde9bdce125abc721cbe0` の main run https://github.com/scarecrow173/synvelis/actions/runs/46102592025 でも同じ failure だったため、slice 起因ではない pre-existing harness failure と切り分けた。この negative evidence は `#696` を取り込んだ final target SHA `6187ce12907652f5c61980c80813fa8e76573bf1` の success run によって統合判断上 supersede される。旧 run を green として扱わない一方、新 run の green も artifact-dependent real ABI lane の Pass を意味しない。
 
 ## Review status
 
-`review-protocol-equivalent blocker 0`（本 slice が所有する `synvelis-player` implementation/test/evidence 差分に残存 blocker はない）。ただし branch CI 自体は上記の lease外 artifact-dependent harness failure により red であり、この注意書きは success criteria を弱めるものではなく、統合時に必要な upstream CI fix の取り込みと再検証を明示するものである。
+`review-protocol-equivalent blocker 0`（本 slice が所有する `synvelis-player` implementation/test/evidence 差分に残存 blocker はない）。final branch CI target SHA `6187ce12907652f5c61980c80813fa8e76573bf1` では decisive lane `evidence` / `ci-summary` がともに successであり、初回 attempt の lease外 flake だけでなく artifact-dependent L1 harness failure も `#696` merge 後の exact target SHA で解消されている。なお統合受入自体は merge 後 main SHA の CI evidence に委ねる。
 
 
 ## Runtime Verification / Formal Verification
@@ -115,10 +123,10 @@ run conclusion は **failure** であり、Pass として記録しない。decis
 
 ## Pass/Fail/NotRun/Unsupported/Blocked separation
 
-- Pass: 上表で exit 0 と記録した local lane のみ。
-- Fail: 本 slice 起因の未解消 code/test failure はなし。branch CI run `46122564406` は lease外 artifact-dependent L1 harness failure により red であり、Pass にしていない（詳細は Branch CI 節）。
+- Pass: 上表で exit 0 と記録した local lane、および final branch CI target SHA `6187ce12907652f5c61980c80813fa8e76573bf1` の run `46125438476` で success となった CI lane。
+- Fail: 本 slice 起因の未解消 code/test failure はなし。pre-`#696` target SHA `8395be14f659165041ffcf269a86c2c2340b44f7` の run `46122564406` は lease外 artifact-dependent L1 harness failure により red だったが、final target SHA `6187ce12907652f5c61980c80813fa8e76573bf1` の success run に supersede された。run `46125438476` 初回 attempt の synvelis-app import replay/jobs ledger failure は lease外 flake であり、同一 SHA rerun で success。いずれも Pass へ読み替えず、Branch CI 節の通り分類する。
 - InfrastructureFailure: workspace-wide `mise run fmt-check` は Windows Orca worktree path length 依存の `os error 206`。成功条件は弱めず、package-scoped rustfmt exit 0 を補助証拠として併記する。
-- NotRun（local）: macOS/Linux/3OS/MSRV、artifact-dependent synvelis-app L1/real ABI lane、GUI-L2/EXT-L3。理由は lease外または統合 CI evidence に委譲されるため。ただし manual branch CI run `46122564406` では 3OS/MSRV lane が対象 SHA で実走され、結果は Pass に昇格させず Branch CI 節へ記録した。
+- NotRun（local）: macOS/Linux/3OS/MSRV、artifact-dependent synvelis-app L1/real ABI lane、GUI-L2/EXT-L3。3OS/MSRV は final branch CI target SHA `6187ce12907652f5c61980c80813fa8e76573bf1` の run `46125438476` で実走・successしたが、artifact-dependent synvelis-app L1/real ABI lane と GUI-L2/EXT-L3 は `#696` による分離後も本 slice の positive evidence に昇格させない。
 - Unsupported: `routing_control.rs` 側の generation/epoch propagation は lease外。本 slice の Pass は driver/headless core semantics に限定する。
 - Blocked: なし。
 
