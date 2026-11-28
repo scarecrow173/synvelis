@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "tim-03-l1-out-of-process-hosting"
 created: "2026-11-26"
-updated: "2026-11-26"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -82,6 +82,9 @@ Fixture: `crates/synvelis-app/tests/tim03_l1_process_oracle.rs`、
   しない。
 - **L1-12 honesty**: tempo/loop/automation sample accuracy、MIDI precision、state
   quality、crash/hang/fault isolation、GUI、Windows EXT-L3 は `NotRun`。Passと書かない。
+- **L1-13 lane separation**: この real ABI / artifact-dependent test は `#[ignore]` の
+  opt-in とし、generic workspace-wide / MSRV / RT lane では実行しない。正規実行は
+  dedicated task のみとし、dedicated task は `--ignored` を指定する。
 
 ## 正規実行
 

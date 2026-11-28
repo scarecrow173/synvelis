@@ -1128,7 +1128,7 @@ fn print_evidence(input: &EvidenceInput<'_>) {
             "generation": generation_json(input.initial, input.generation),
             "commands": [
                 "cargo build --locked -p synvelis-plugin-test-l1-runner",
-                "cargo test --locked -p synvelis-app --test pc_c4_l1_real_abi_binding -- --test-threads=1 --nocapture"
+                "cargo test --locked -p synvelis-app --test pc_c4_l1_real_abi_binding -- --ignored --test-threads=1 --nocapture"
             ],
         })
     );
@@ -1211,12 +1211,14 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-pc-c4-l1`)"]
 fn pc_c4_l1_vst3_real_abi_binding() {
     let (probe, _library) = load_vst3();
     exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-pc-c4-l1`)"]
 fn pc_c4_l1_clap_real_abi_binding() {
     let (probe, _library) = load_clap();
     exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);

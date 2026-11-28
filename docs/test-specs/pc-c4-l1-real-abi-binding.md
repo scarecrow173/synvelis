@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "PC-C4 L1 real ABI binding test spec"
 created: "2026-11-26"
-updated: "2026-11-26"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -46,9 +46,11 @@ relations:
 - `pc_c4_l1_vst3_real_abi_binding`
 - `pc_c4_l1_clap_real_abi_binding`
 
-両者とも同一 helper を `--test-threads=1` で実行する。artifact 不在や runner 不在は
-skip ではなく fail-closed であり、missing runner message は `mise run test-pc-c4-l1`
-を示す。
+両者とも test-only runner artifact に依存する real ABI test であり、generic workspace-wide /
+MSRV / RT lane の対象外とする。正規実行は runner を先に build する dedicated opt-in lane
+`mise run test-pc-c4-l1` であり、この lane は `#[ignore]` 対象を `--ignored` と
+`--test-threads=1` で実行する。artifact 不在や runner 不在は skip ではなく fail-closed であり、
+missing runner message は `mise run test-pc-c4-l1` を示す。
 
 ## Inputs
 
