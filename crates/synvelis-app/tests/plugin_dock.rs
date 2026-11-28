@@ -18,7 +18,7 @@
 //! Nothing here claims real OS/native-plugin evidence — rows 1/7/8
 //! stay `NotRun`/`Deferred` (`evidence/sv176/`).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
@@ -28,8 +28,8 @@ use serde_json::{Value, json};
 use ruviform_plugin_core::{ParentSlotLease, PluginEditorSessionId, PluginHandle};
 use ruviform_plugin_host::{
     AttachMode, EditorCapabilities, EditorOpError, EditorSessionError, EditorSessionOps,
-    EditorSessionState, EditorSize, LeaseRedeemer, PluginEditorSessions, SessionFailCause,
-    Support as HostSupport,
+    EditorSessionState, EditorSize, LeaseRedeemer, PluginEditorSessions, SessionClock,
+    SessionDeadlinePolicy, SessionFailCause, Support as HostSupport,
 };
 use ruviform_ui::WindowId;
 use ruviform_ui::dock::ViewInstanceId;
@@ -1603,26 +1603,87 @@ fn plugin_dock_ops_do_not_touch_project_or_dsp_state() {
 // Session integration — project boundary and PD-07 sidecar persistence
 // ---------------------------------------------------------------------------
 
-fn direct_app_with_host(instance: u64) -> (SynvelisApp, SharedNativeSlotAuthority) {
+fn direct_app_with_host_ops(instance: u64) -> (SynvelisApp, SharedNativeSlotAuthority, SharedOps) {
     let mut app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
     let mut host = FakeEditorHost::new();
-    host.add_instance(instance);
+    let ops = host.add_instance(instance);
     app.set_plugin_editor_host(Box::new(host));
     let authority = test_authority();
     app.set_native_slot_authority(authority.clone());
+    (app, authority, ops)
+}
+
+fn direct_app_with_host(instance: u64) -> (SynvelisApp, SharedNativeSlotAuthority) {
+    let (app, authority, _) = direct_app_with_host_ops(instance);
     (app, authority)
 }
 
+/// Selectively drains `syn.plugin_dock.state` notify payloads from the
+/// app outbox. Non-matching events stay queued so this read never
+/// consumes unrelated evidence.
+fn drain_plugin_dock_notifies(app: &SynvelisApp) -> Vec<Value> {
+    let outbox = app.event_outbox();
+    let mut matched = Vec::new();
+    let mut rest = Vec::new();
+    {
+        let mut q = outbox.borrow_mut();
+        while let Some(event) = q.pop_front() {
+            match &event {
+                Event::Notify { data, .. } if data["channel"] == "syn.plugin_dock.state" => {
+                    matched.push(data["data"].clone());
+                }
+                _ => rest.push(event),
+            }
+        }
+        for event in rest.into_iter().rev() {
+            q.push_front(event);
+        }
+    }
+    matched
+}
+
+fn session_event_names(notifies: &[Value]) -> Vec<String> {
+    notifies
+        .iter()
+        .filter(|row| row["view_id"] == "view-9")
+        .flat_map(|row| {
+            row["events"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|event| event["event"].as_str().map(str::to_owned))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn json_has_key(value: &Value, key: &str) -> bool {
+    match value {
+        Value::Object(map) => map.contains_key(key) || map.values().any(|v| json_has_key(v, key)),
+        Value::Array(rows) => rows.iter().any(|v| json_has_key(v, key)),
+        _ => false,
+    }
+}
+
+struct ManualClock {
+    now: Rc<Cell<Duration>>,
+}
+
+impl SessionClock for ManualClock {
+    fn now(&self) -> Duration {
+        self.now.get()
+    }
+}
+
 fn direct_temp_bundle(name: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!(
+    std::env::temp_dir().join(format!(
         "synvelis-sv176-{name}-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock")
             .as_nanos()
-    ));
-    dir
+    ))
 }
 
 fn direct_open_editor(app: &mut SynvelisApp, instance: u64) {
@@ -1712,4 +1773,196 @@ fn project_save_open_restores_pd07_logical_panel_closed() {
         }))
         .expect_err("explicit reopen needs an adopted window");
     assert!(err.message.contains("not adopted"));
+
+    // Once the new workspace adopts the window, the same explicit open
+    // command is the honest re-open path: it consumes the restored
+    // logical state instead of resurrecting a runtime session id.
+    app.op_window_lifecycle(&json!({
+        "window_id": "w1",
+        "event": "created",
+        "title": "Synvelis",
+    }))
+    .expect("adopt reopened window");
+    app.op_plugin_dock_open(&json!({
+        "view_id": "view-9",
+        "window_id": "w1",
+        "instance": 7,
+    }))
+    .expect("explicit reopen after adoption");
+    let reopened = app.plugin_dock_state("view-9").expect("reopened panel");
+    assert_eq!(reopened["session_state"], "attached");
+    assert!(reopened["restored"].is_null());
+}
+
+#[test]
+fn pd07_sidecar_contains_no_runtime_session_or_handle_vocabulary() {
+    let (mut app, _authority) = direct_app_with_host(7);
+    let bundle = direct_temp_bundle("pd07-sidecar");
+    app.project_new(&bundle.to_string_lossy(), Some("pd07"))
+        .expect("project new");
+    direct_open_editor(&mut app, 7);
+    app.op_plugin_dock_hide(&json!({ "view_id": "view-9" }))
+        .expect("hide before save");
+    app.project_save().expect("project save");
+
+    let sidecar = std::fs::read_to_string(bundle.join("plugin-docks.json"))
+        .expect("plugin dock sidecar exists in the bundle");
+    let json: Value = serde_json::from_str(&sidecar).expect("sidecar is json");
+    assert_eq!(json["format"], "synvelis-plugin-docks/1");
+    assert_eq!(json["panels"][0]["snapshot"]["instance"], 7);
+    assert_eq!(json["panels"][0]["snapshot"]["visible"], false);
+    for banned in ["session", "slot", "lease", "handle", "token"] {
+        assert!(
+            !json_has_key(&json, banned),
+            "runtime key `{banned}` must not persist: {sidecar}"
+        );
+    }
+
+    let reopened = app
+        .project_open(&bundle.to_string_lossy())
+        .expect("project open");
+    assert_eq!(reopened["plugin_docks"]["restored"], 1);
+    let state = app.plugin_dock_state("view-9").expect("restored panel");
+    assert_eq!(state["session_state"], "closed");
+    assert_eq!(state["restored"]["visible"], false);
+}
+
+#[test]
+fn session_pump_drains_panel_events_exactly_once_in_order() {
+    let (mut app, _authority) = direct_app_with_host(7);
+    direct_open_editor(&mut app, 7);
+    app.op_plugin_dock_hide(&json!({ "view_id": "view-9" }))
+        .expect("hide");
+    app.op_plugin_dock_show(&json!({ "view_id": "view-9" }))
+        .expect("show");
+    app.op_window_lifecycle(&json!({ "event": "tick" }))
+        .expect("extra pump");
+
+    let events = session_event_names(&drain_plugin_dock_notifies(&app));
+    assert_eq!(events, vec!["attached", "hidden", "shown"]);
+}
+
+#[test]
+fn session_deadline_timeout_converges_failed_once_through_ui_pump() {
+    let (mut app, _authority) = direct_app_with_host(7);
+    direct_open_editor(&mut app, 7);
+    let now = Rc::new(Cell::new(Duration::ZERO));
+    app.with_plugin_editor_session_for_test("view-9", |session| {
+        session.set_deadline_policy(Some(SessionDeadlinePolicy {
+            timeout: Duration::from_millis(5),
+            clock: Box::new(ManualClock { now: now.clone() }),
+        }));
+        session.begin_detach().expect("manual in-flight detach");
+    })
+    .expect("bound session");
+    now.set(Duration::from_millis(6));
+
+    app.op_window_lifecycle(&json!({ "event": "tick" }))
+        .expect("deadline pump");
+    let state = app.plugin_dock_state("view-9").expect("panel");
+    assert_eq!(state["session_state"], "failed");
+
+    app.op_window_lifecycle(&json!({ "event": "tick" }))
+        .expect("second pump");
+    let notifies = drain_plugin_dock_notifies(&app);
+    let failed: Vec<_> = notifies
+        .iter()
+        .filter(|row| row["view_id"] == "view-9")
+        .flat_map(|row| row["events"].as_array().into_iter().flatten())
+        .filter(|event| event["event"] == "failed")
+        .collect();
+    assert_eq!(failed.len(), 1, "timeout failure is projected exactly once");
+    assert_eq!(failed[0]["cause"], "Timeout");
+}
+
+#[test]
+fn degraded_event_is_projected_without_claiming_requested_attach() {
+    let (mut app, _authority, ops) = direct_app_with_host_ops(7);
+    app.op_window_lifecycle(&json!({
+        "window_id": "w1",
+        "event": "created",
+        "title": "Synvelis",
+    }))
+    .expect("adopt window");
+    ops.borrow_mut().open_err = Some(EditorOpError::Unsupported);
+    let err = app
+        .op_plugin_dock_open(&json!({
+            "view_id": "view-9",
+            "window_id": "w1",
+            "instance": 7,
+        }))
+        .expect_err("unsupported docked open fails first");
+    assert_eq!(err.code.as_str(), "unavailable");
+
+    app.with_plugin_editor_session_for_test("view-9", |session| {
+        let request = session
+            .begin_degrade(AttachMode::Floating)
+            .expect("failed session can begin degrade");
+        session
+            .complete_attach(request, Ok(()))
+            .expect("async fallback attach completion");
+    })
+    .expect("bound failed session");
+    app.op_window_lifecycle(&json!({ "event": "tick" }))
+        .expect("projection pump");
+
+    let state = app.plugin_dock_state("view-9").expect("panel");
+    assert_eq!(state["session_state"], "attached");
+    assert_eq!(state["mode"], "floating");
+    let events = session_event_names(&drain_plugin_dock_notifies(&app));
+    assert_eq!(events, vec!["failed", "degraded"]);
+    assert!(
+        !events.iter().any(|event| event == "attached"),
+        "a degrade must never be rewritten as a requested-mode attach"
+    );
+}
+
+#[test]
+fn project_boundary_converges_without_host_and_after_adapter_refusal() {
+    for refusal in [None, Some(EditorOpError::Unsupported)] {
+        let (mut app, authority, ops) = direct_app_with_host_ops(7);
+        let first = direct_temp_bundle("boundary-host-a");
+        let next = direct_temp_bundle("boundary-host-b");
+        app.project_new(&first.to_string_lossy(), Some("a"))
+            .expect("project a");
+        direct_open_editor(&mut app, 7);
+        let slot = app
+            .plugin_dock_panel("view-9")
+            .and_then(PluginDock::slot)
+            .expect("live slot");
+        if let Some(error) = refusal {
+            ops.borrow_mut().close_err = Some(error);
+        } else {
+            app.clear_plugin_editor_host();
+        }
+
+        app.project_new(&next.to_string_lossy(), Some("b"))
+            .expect("project boundary remains convergent");
+        assert!(app.plugin_dock_panel("view-9").is_none());
+        assert_eq!(
+            authority.borrow().state(slot).ok().flatten(),
+            Some(SlotState::Released)
+        );
+    }
+}
+
+#[test]
+fn pd07_restore_reports_unknown_instance_without_panicking_or_dropping() {
+    let (mut app, _authority) = direct_app_with_host(7);
+    let bundle = direct_temp_bundle("pd07-unknown");
+    app.project_new(&bundle.to_string_lossy(), Some("pd07"))
+        .expect("project new");
+    direct_open_editor(&mut app, 7);
+    app.project_save().expect("project save");
+
+    app.set_plugin_editor_host(Box::new(FakeEditorHost::new()));
+    let opened = app
+        .project_open(&bundle.to_string_lossy())
+        .expect("project open");
+    assert_eq!(opened["plugin_docks"]["restored"], 0);
+    assert_eq!(
+        opened["plugin_docks"]["rejected"][0]["reason"],
+        "unknown_instance"
+    );
+    assert!(app.plugin_dock_panel("view-9").is_none());
 }

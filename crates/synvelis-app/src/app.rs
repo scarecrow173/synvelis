@@ -883,6 +883,14 @@ impl SynvelisApp {
         self.ui.plugin_editor_host = Some(host);
     }
 
+    /// Removes the installed plugin editor host. Composition roots use
+    /// this when the host owner shuts down before the app shell; project
+    /// boundary convergence then records host loss honestly instead of
+    /// borrowing a stale adapter.
+    pub fn clear_plugin_editor_host(&mut self) {
+        self.ui.plugin_editor_host = None;
+    }
+
     /// Installs the shared [`NativeSlotAuthority`](crate::plugin_dock::NativeSlotAuthority)
     /// every `PluginDock` panel is lent (synvelis#176 S2): one
     /// slot/lease ledger for the whole app — the driver's canonical
@@ -923,6 +931,22 @@ impl SynvelisApp {
         crate::ui_ops::parse_view_instance(view_id)
             .and_then(|inst| self.ui.plugin_docks.get(&inst))
             .map(|dock| crate::ui_ops::plugin_dock_status_json(dock, &self.ui.plugin_sessions))
+    }
+
+    /// Deterministic headless-test access to the live session bound to
+    /// `view_id`. This seam is intentionally narrow but not part of the
+    /// product op surface: integration fixtures use it to install a
+    /// manual deadline clock or to reproduce an asynchronous driver
+    /// completion, then return to the authoritative `ui_pump` path.
+    #[doc(hidden)]
+    pub fn with_plugin_editor_session_for_test<R>(
+        &mut self,
+        view_id: &str,
+        f: impl FnOnce(&mut ruviform_plugin_host::PluginEditorSession) -> R,
+    ) -> Option<R> {
+        let inst = crate::ui_ops::parse_view_instance(view_id)?;
+        let session = self.ui.plugin_docks.get(&inst)?.binding()?.session;
+        self.ui.plugin_sessions.session_mut(session).map(f)
     }
 
     /// The Signal Flow projection for `view` — the per-view persisted

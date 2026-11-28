@@ -22,7 +22,8 @@ use ruviform_media_core::{
 };
 use ruviform_plugin_core::{ParamValue, ParamWriteMeans};
 use ruviform_plugin_host::{
-    AttachMode, EditorSessionEvent, EditorSessionState, EditorSize, PluginEditorSessions,
+    AttachMode, EditorOpError, EditorSessionError, EditorSessionEvent, EditorSessionState,
+    EditorSize, PluginEditorSessions,
 };
 use ruviform_ui::dock::{
     DockEvent, DockTarget, MoveToken, ViewInstanceId, WindowCloseDisposition, WindowGeometry,
@@ -942,12 +943,8 @@ pub(crate) fn plugin_dock_status_json(dock: &PluginDock, sessions: &PluginEditor
         .as_ref()
         .map(session_state_name)
         .map_or_else(
-            || {
-                logical
-                    .map(|_| Value::from("closed"))
-                    .unwrap_or(Value::Null)
-            },
-            |name| Value::from(name),
+            || logical.map_or(Value::Null, |_| Value::from("closed")),
+            Value::from,
         );
     json!({
         "view_id": format!("view-{}", s.view.get()),
@@ -2618,6 +2615,36 @@ impl SynvelisApp {
         });
     }
 
+    /// The honest termination cause after a boundary close failure. A
+    /// session that already landed `Failed` keeps that cause verbatim;
+    /// otherwise the adapter error is mapped with the same terminal-cause
+    /// vocabulary the upstream session state machine uses.
+    fn plugin_dock_close_failure_cause(
+        dock: &PluginDock,
+        sessions: &PluginEditorSessions,
+        error: &PluginDockError,
+    ) -> ruviform_plugin_host::SessionFailCause {
+        use ruviform_plugin_host::SessionFailCause;
+
+        if let Some(EditorSessionState::Failed { cause }) = dock.session_state(sessions) {
+            return cause;
+        }
+        let op = match error {
+            PluginDockError::Session(EditorSessionError::Ops(op)) | PluginDockError::Ops(op) => *op,
+            _ => return SessionFailCause::Internal,
+        };
+        match op {
+            EditorOpError::Unsupported => SessionFailCause::Unsupported,
+            EditorOpError::LeaseRejected => SessionFailCause::LeaseInvalid,
+            EditorOpError::Timeout => SessionFailCause::Timeout,
+            EditorOpError::HostLost => SessionFailCause::HostLost,
+            EditorOpError::GraphicsLost => SessionFailCause::GraphicsLost,
+            EditorOpError::Plugin => SessionFailCause::PluginFailed,
+            EditorOpError::Io => SessionFailCause::Transport,
+            _ => SessionFailCause::Internal,
+        }
+    }
+
     /// Converges every plugin dock at a project boundary. A live
     /// session first gets the graceful-close opportunity; any adapter
     /// refusal is then converged as a termination and force-retired so
@@ -2629,21 +2656,20 @@ impl SynvelisApp {
     pub(crate) fn converge_plugin_docks_for_project_boundary(&mut self) {
         let views: Vec<ViewInstanceId> = self.ui.plugin_docks.keys().copied().collect();
         for view in views {
-            let close_failed = {
+            let close_error = {
                 let Some(dock) = self.ui.plugin_docks.get_mut(&view) else {
                     continue;
                 };
                 let host = self.ui.plugin_editor_host.as_deref_mut();
-                dock.close(&mut self.ui.plugin_sessions, host).is_err()
+                dock.close(&mut self.ui.plugin_sessions, host).err()
             };
-            if close_failed {
-                if let Some(dock) = self.ui.plugin_docks.get_mut(&view) {
-                    dock.notify_instance_terminated(
-                        &mut self.ui.plugin_sessions,
-                        ruviform_plugin_host::SessionFailCause::Transport,
-                    );
-                    let _ = dock.close(&mut self.ui.plugin_sessions, None);
-                }
+            if let Some(error) = close_error
+                && let Some(dock) = self.ui.plugin_docks.get_mut(&view)
+            {
+                let cause =
+                    Self::plugin_dock_close_failure_cause(dock, &self.ui.plugin_sessions, &error);
+                dock.notify_instance_terminated(&mut self.ui.plugin_sessions, cause);
+                let _ = dock.close(&mut self.ui.plugin_sessions, None);
             }
             if let Some(dock) = self.ui.plugin_docks.get_mut(&view) {
                 dock.notify_window_lost(&mut self.ui.plugin_sessions);
