@@ -973,6 +973,7 @@ fn state_snapshot(store: &L1MatrixStore) -> Value {
     })
 }
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner and fixture artifacts (run `mise run test-tim04-l1`)"]
 fn l1_scan_lifecycle_and_capture_quality_matrix() {
     for format in [Format::Vst3, Format::Clap] {
         let (host, ds) = prepare_host(
@@ -1049,6 +1050,7 @@ fn l1_scan_lifecycle_and_capture_quality_matrix() {
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner and fixture artifacts (run `mise run test-tim04-l1`)"]
 fn l1_stateful_save_mutate_restore_save_roundtrip() {
     for format in [Format::Vst3, Format::Clap] {
         let (host, ds) = prepare_host(&[(format, FixtureKind::Stateful)], Duration::from_secs(5));
@@ -1132,6 +1134,7 @@ fn l1_stateful_save_mutate_restore_save_roundtrip() {
     reason = "the fault matrix keeps each mode's setup, oracle, and evidence in one consumer-run sequence"
 )]
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner and fixture artifacts (run `mise run test-tim04-l1`)"]
 fn l1_fault_projection_and_old_blob_protection() {
     for format in [Format::Vst3, Format::Clap] {
         for (mode, normalized, expected) in [
@@ -1256,6 +1259,7 @@ fn l1_fault_projection_and_old_blob_protection() {
     reason = "the permission matrix keeps real-byte capture, independent fault rows, and evidence in one consumer run"
 )]
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner and fixture artifacts (run `mise run test-tim04-l1`)"]
 fn l1_permission_fault_matrix_real_rfst() {
     for format in [Format::Vst3, Format::Clap] {
         let (host, ds) = prepare_host(
