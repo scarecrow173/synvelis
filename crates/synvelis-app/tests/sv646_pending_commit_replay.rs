@@ -93,11 +93,12 @@ fn manifest_stage(dir: &Path, import_id: u64) -> Option<String> {
 }
 
 /// Parks an `import.submit` job at `commit-pending`: the
-/// `GatePublisher` holds the worker mid-publish until `gate.open()`,
-/// then the dry-run `import_verified` commits the scratch and
-/// `park_commit` arms the owed commit. Returns once the durable
-/// manifest witnesses `committed` — the ledger read would reconcile
-/// first, so the manifest is the park observation point.
+/// `GatePublisher` holds the worker mid-publish until `gate.open()`.
+/// The worker then either commits the scratch controller or the job
+/// watcher parks it at the durable publish boundary; both paths end in
+/// `park_commit` arming the owed live commit. Returns once the raw ledger
+/// witnesses that owed commit — a reconciling ledger read would consume
+/// it first, so the raw snapshot is the park observation point.
 fn submit_and_park(app: &mut SynvelisApp, dir: &Path, gate: &Gate, import_id: u64) {
     let view = open_view(app);
     select_and_browse(app, &view);
@@ -113,18 +114,16 @@ fn submit_and_park(app: &mut SynvelisApp, dir: &Path, gate: &Gate, import_id: u6
     );
     wait_stage(app, &import_key(import_id), "materializing");
     gate.open();
-    // `committed` on the durable manifest is the deterministic park
-    // witness (the ledger read would reconcile first).
-    for _ in 0..2000 {
-        if manifest_stage(dir, import_id).as_deref() == Some("committed") {
-            // `park_commit` runs µs after the worker returns; give
-            // the post-join ledger write headroom before any save.
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            return;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    panic!("import {import_id} manifest never reached committed");
+    let parked = wait_raw_commit_boundary(app, &import_key(import_id));
+    assert!(
+        parked["pending_commit"].as_bool() == Some(true),
+        "import {import_id} reached the commit boundary without parking pending_commit: {parked}"
+    );
+    let stage = manifest_stage(dir, import_id);
+    assert!(
+        matches!(stage.as_deref(), Some("published" | "committed")),
+        "the durable manifest proves the publish boundary behind the parked ledger entry: stage={stage:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------

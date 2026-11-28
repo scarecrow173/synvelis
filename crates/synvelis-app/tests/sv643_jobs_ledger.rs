@@ -21,7 +21,7 @@
 mod common;
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use common::library::*;
 use ruviform_ui::ipc::{Event, JobState};
@@ -30,7 +30,7 @@ use serde_json::{Value, json};
 
 use synvelis_app::{AppService, LibraryImportServices, SynvelisApp};
 use synvelis_library::PrincipalId;
-use synvelis_workspace::LibraryBackend;
+use synvelis_workspace::{LibraryBackend, LibraryJobLedger};
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -240,22 +240,23 @@ fn restart_replays_pending_commit_to_committed_live() {
     );
     wait_stage(&mut app, &import_key(13), "materializing");
     gate.open();
-    // Reading the ledger would reconcile the parked commit — the
-    // durable manifest is the deterministic park witness instead.
-    // The worker's dry-run `import_verified` commits on a scratch
-    // controller, so `committed` on the manifest is what parks the
-    // job; `applied` stays false until the service-thread reconcile
-    // replays the commit on the live controller.
-    for _ in 0..2000 {
-        if manifest_stage(&dir, 13).as_deref() == Some("committed") {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    assert_eq!(manifest_stage(&dir, 13).as_deref(), Some("committed"));
-    // `park_commit` runs µs after the worker returns; give the
-    // post-join ledger write headroom before the save snapshot.
-    std::thread::sleep(std::time::Duration::from_millis(200));
+    // Reading the reconciling ledger would consume the parked commit —
+    // the raw ledger is the deterministic park witness instead. The
+    // worker either commits the scratch controller before the watcher
+    // cancels its commit gate (`committed`) or is parked at the durable
+    // publish boundary first (`published`); both leave the same owed
+    // commit for the service-thread reconcile, and `applied` stays
+    // false until that replay reaches the live controller.
+    let parked = wait_raw_commit_boundary(&app, &import_key(13));
+    assert!(
+        parked["pending_commit"].as_bool() == Some(true),
+        "import 13 reached the commit boundary without parking pending_commit: {parked}"
+    );
+    let stage = manifest_stage(&dir, 13);
+    assert!(
+        matches!(stage.as_deref(), Some("published" | "committed")),
+        "the durable manifest proves the publish boundary behind the parked ledger entry: stage={stage:?}"
+    );
     app.project_save().expect("project_save");
     drop(app);
 
@@ -532,21 +533,36 @@ fn rt_job(rt: &mut UiRuntime, key: &str) -> Option<Value> {
 }
 
 /// Polls `rt` until job `id` lands a `JobState::Cancelled` event.
-fn wait_job_cancelled(rt: &mut UiRuntime, id: u64) {
-    for _ in 0..400 {
-        for e in rt.poll(Some(std::time::Duration::from_millis(20))) {
-            if let Event::Job {
-                job,
-                state: JobState::Cancelled,
-                ..
-            } = e
-                && job == id
-            {
-                return;
+fn wait_job_cancelled(
+    rt: &mut UiRuntime,
+    id: u64,
+    ledger: &Arc<Mutex<LibraryJobLedger>>,
+    key: &str,
+) {
+    bounded_wait(
+        "runtime job Cancelled event",
+        || {
+            let mut saw = false;
+            for e in rt.poll(Some(JOB_WAIT_INTERVAL)) {
+                if let Event::Job {
+                    job,
+                    state: JobState::Cancelled,
+                    ..
+                } = e
+                    && job == id
+                {
+                    saw = true;
+                }
             }
-        }
-    }
-    panic!("job {id} never produced a Cancelled event");
+            saw.then_some(())
+        },
+        || {
+            format!(
+                "runtime_job_id={id}; {}",
+                raw_job_timeout_diagnostic(ledger, key, "runtime Cancelled event")
+            )
+        },
+    );
 }
 
 #[test]
@@ -563,6 +579,7 @@ fn generic_job_cancel_reaches_import_job() {
     );
     let view = open_view(&mut app);
     select_and_browse(&mut app, &view);
+    let ledger = shared_job_ledger(&app);
     let service = AppService::new(app);
     let mut rt = UiRuntime::new(DataRegistry::new());
     rt.register_service(service).expect("register AppService");
@@ -584,21 +601,20 @@ fn generic_job_cancel_reaches_import_job() {
 
     // Park inside publish (manifest `verified`) — the wire entry
     // carries the runtime job correlation a cancel caller needs.
-    let mut entry = None;
-    for _ in 0..2000 {
-        entry = rt_job(&mut rt, &import_key(12));
-        if entry.as_ref().and_then(|e| e["stage"].as_str()) == Some("materializing") {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    let entry = entry.expect("ledger entry");
+    let entry = bounded_wait(
+        "runtime ledger entry to reach materializing",
+        || match rt_job(&mut rt, &import_key(12)) {
+            Some(entry) if entry["stage"].as_str() == Some("materializing") => Some(entry),
+            _ => None,
+        },
+        || raw_job_timeout_diagnostic(&ledger, &import_key(12), "stage materializing"),
+    );
     assert_eq!(entry["stage"], "materializing");
     assert_eq!(entry["runtime_job"].as_u64(), Some(job_id));
 
     let (ok, res) = result_of(rt.dispatch_op("t", "job.cancel", json!({ "job": job_id })));
     assert_eq!(res, json!({ "job": job_id, "cancelling": true }), "ok={ok}");
-    wait_job_cancelled(&mut rt, job_id);
+    wait_job_cancelled(&mut rt, job_id, &ledger, &import_key(12));
 
     let done = rt_job(&mut rt, &import_key(12)).expect("ledger entry");
     assert_eq!(done["state"], "done");
@@ -624,6 +640,7 @@ fn generic_job_cancel_reaches_preview_job() {
     );
     let view = open_view(&mut app);
     select_and_browse(&mut app, &view);
+    let ledger = shared_job_ledger(&app);
     let service = AppService::new(app);
     let mut rt = UiRuntime::new(DataRegistry::new());
     rt.register_service(service).expect("register AppService");
@@ -646,19 +663,14 @@ fn generic_job_cancel_reaches_preview_job() {
     // lands inside `run_plan_job` on the job thread — poll until the
     // correlation is visible on the wire.
     let key = preview_key(&view);
-    let mut entry = None;
-    for _ in 0..2000 {
-        entry = rt_job(&mut rt, &key);
-        if entry
-            .as_ref()
-            .and_then(|e| e["runtime_job"].as_u64())
-            .is_some()
-        {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    let entry = entry.expect("ledger entry");
+    let entry = bounded_wait(
+        "runtime ledger entry to report runtime_job",
+        || match rt_job(&mut rt, &key) {
+            Some(entry) if entry["runtime_job"].as_u64().is_some() => Some(entry),
+            _ => None,
+        },
+        || raw_job_timeout_diagnostic(&ledger, &key, "runtime_job correlation"),
+    );
     assert_eq!(entry["runtime_job"].as_u64(), Some(job_id));
 
     let (ok, res) = result_of(rt.dispatch_op("t", "job.cancel", json!({ "job": job_id })));
@@ -667,7 +679,7 @@ fn generic_job_cancel_reaches_preview_job() {
     // the gate releases — the cancel is already latched on the
     // JobContext token the drive checks at the next read.
     gate.open();
-    wait_job_cancelled(&mut rt, job_id);
+    wait_job_cancelled(&mut rt, job_id, &ledger, &key);
 
     let done = rt_job(&mut rt, &key).expect("ledger entry");
     assert_eq!(done["state"], "done");
