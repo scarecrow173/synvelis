@@ -2,7 +2,7 @@
 
 slice `tim03-core-semantics-s1`。Issue close ではなく `Refs #127` の前進 slice。対象は `synvelis-player` の fake/headless fixture が所有する core semanticsであり、real ABI plugin、production composition、synvelis-app L1 runner、GUI/EXT-L3、Plugin State Snapshot 本体は対象外。
 
-machine-readable matrix: `evidence/sv127/core-semantics.jsonl`  
+machine-readable matrix: `evidence/sv127/core-semantics.jsonl`<br>
 command/evidence logs: `evidence/sv127/core-semantics/`（`*.log` は gitignore 対象の raw evidence。永続サマリは本書と TSV）
 
 ## Anchor
