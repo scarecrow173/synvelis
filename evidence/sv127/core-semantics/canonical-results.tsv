@@ -7,3 +7,17 @@ mise run test synvelis-player	windows-x86_64	0	Pass	test-synvelis-player.log
 mise run test-rt	windows-x86_64	0	Pass after auxiliary runner build; initial missing-artifact exit 101 isolated	test-rt.log
 mise run check-headless-deps	windows-x86_64	0	Pass	check-headless-deps.log
 cargo build --locked -p synvelis-plugin-test-l1-runner	windows-x86_64	0	AuxiliarySetupPass	build-l1-runner-aux.log
+branch-ci dep-guard	ubuntu-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046655
+branch-ci gw10-verify (ubuntu-latest)	ubuntu-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046608
+branch-ci gw10-verify (windows-latest)	windows-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046621
+branch-ci gw10-verify-macos	macos-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046678
+branch-ci ui-verify (ubuntu-latest)	ubuntu-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046652
+branch-ci ui-verify (windows-latest)	windows-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046598
+branch-ci ui-verify-macos	macos-latest	0	Pass	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046583
+branch-ci verify (ubuntu-latest): mise run test-full	ubuntu-latest	101	PreexistingOutOfScopeFailure artifact-dependent L1 runner missing	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046651
+branch-ci verify (windows-latest): mise run test-full	windows-latest	101	PreexistingOutOfScopeFailure artifact-dependent L1 runner missing	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046558
+branch-ci verify-macos: mise run test-full	macos-latest	101	PreexistingOutOfScopeFailure artifact-dependent L1 runner missing	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046614
+branch-ci rt-verify: mise run test-rt	ubuntu-latest	101	PreexistingOutOfScopeFailure artifact-dependent L1 runner missing	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046711
+branch-ci msrv-verify: mise run test-msrv	ubuntu-latest	101	PreexistingOutOfScopeFailure artifact-dependent L1 runner missing	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140910046445
+branch-ci evidence: mise run ci-summary-gate	ubuntu-latest	1	DecisiveFailure consequence of preexisting out-of-scope lanes	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140915449540
+branch-ci ci-summary: mise run ci-summary-gate	ubuntu-latest	1	DecisiveFailure consequence of preexisting out-of-scope lanes	https://github.com/scarecrow173/synvelis/actions/runs/46122564406/job/140915527828
