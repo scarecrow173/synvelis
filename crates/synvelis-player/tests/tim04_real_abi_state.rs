@@ -945,6 +945,7 @@ fn assert_depinfo_provenance_filter() {
 }
 
 #[test]
+#[ignore = "artifact-dependent real ABI lane: requires prebuilt fixture artifacts (run `mise run test-tim04-real-abi`)"]
 fn artifact_resolution_and_scan_surface_fail_closed() {
     assert_depinfo_provenance_filter();
 
@@ -1024,6 +1025,7 @@ fn expected_quality(processing: bool, mode: CaptureMode) -> StateCaptureQuality 
 }
 
 #[test]
+#[ignore = "artifact-dependent real ABI lane: requires prebuilt fixture artifacts (run `mise run test-tim04-real-abi`)"]
 fn capability_matrix_is_measured_for_real_test_plugins() {
     for format in Format::ALL {
         let fixture = load_fixture(format);
@@ -1363,16 +1365,19 @@ fn stateful_roundtrip(format: Format, plugin_name: &str) {
 }
 
 #[test]
+#[ignore = "artifact-dependent real ABI lane: requires prebuilt fixture artifacts (run `mise run test-tim04-real-abi`)"]
 fn vst3_distributed_stateful_roundtrip_oracle() {
     stateful_roundtrip(Format::Vst3, "test_stateful");
 }
 
 #[test]
+#[ignore = "artifact-dependent real ABI lane: requires prebuilt fixture artifacts (run `mise run test-tim04-real-abi`)"]
 fn vst3_single_stateful_roundtrip_oracle() {
     stateful_roundtrip(Format::Vst3, "test_stateful_single");
 }
 
 #[test]
+#[ignore = "artifact-dependent real ABI lane: requires prebuilt fixture artifacts (run `mise run test-tim04-real-abi`)"]
 fn clap_stateful_roundtrip_oracle() {
     stateful_roundtrip(Format::Clap, "test_stateful");
 }
@@ -1380,6 +1385,7 @@ fn clap_stateful_roundtrip_oracle() {
 // ── Corrupt/missing blob integrity ───────────────────────────────
 
 #[test]
+#[ignore = "artifact-dependent real ABI lane: requires prebuilt fixture artifacts (run `mise run test-tim04-real-abi`)"]
 fn corrupt_and_missing_blobs_restore_as_typed_failures() {
     for format in Format::ALL {
         let fixture = load_fixture(format);

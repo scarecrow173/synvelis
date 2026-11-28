@@ -702,7 +702,7 @@ fn evidence_json(input: EvidenceInput<'_>) -> Value {
         ],
         "commands": [
             "cargo build --locked -p synvelis-plugin-test-l1-runner",
-            "cargo test --locked -p synvelis-app --test tim03_l1_instrument_transport -- --test-threads=1 --nocapture",
+            "cargo test --locked -p synvelis-app --test tim03_l1_instrument_transport -- --ignored --test-threads=1 --nocapture",
         ],
     })
 }
@@ -774,12 +774,14 @@ fn exercise_format(probe: &common::tim03_l1::FixtureProbe, runner_env: &str, run
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-instrument-transport`)"]
 fn clap_instrument_transport_clicks() {
     let (probe, _library) = load_clap();
     exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-instrument-transport`)"]
 fn vst3_instrument_transport_clicks() {
     let (probe, _library) = load_vst3();
     exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);

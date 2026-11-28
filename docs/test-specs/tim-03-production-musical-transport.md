@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "TIM-03 production musical transport"
 created: "2026-11-27"
-updated: "2026-11-27"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -58,7 +58,7 @@ relations:
 
 ## Canonical lane
 
-`mise run test-tim03-production-transport` は runner build後に integration testを `--test-threads=1` で実行する。
+`mise run test-tim03-production-transport` は runner build後に `#[ignore]` の artifact-dependent integration testを `--ignored` と `--test-threads=1` で実行する。generic workspace-wide / MSRV / RT lane はこの test を実行しない。
 
 ## Dynamic refresh test oracle
 
