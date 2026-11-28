@@ -521,6 +521,27 @@ impl NativeShell {
         }
         self.clock
             .set(self.clock.get().saturating_add(self.tick_ms));
+        // Editor-session deadlines advance with wall time even when no
+        // frontend op arrives. The sealed app is reachable only through
+        // service ops, so the shell forwards one internal tick fact into
+        // the same `syn.window.lifecycle` seam; the op tail runs the
+        // authoritative `ui_pump` once. Results are internal evidence —
+        // they are logged on failure, never broadcast to views.
+        self.teardown_seq += 1;
+        let id = format!("shell-tick-{}", self.teardown_seq);
+        for event in self
+            .rt
+            .dispatch_op(id, "syn.window.lifecycle", json!({ "event": "tick" }))
+        {
+            if let Event::Result {
+                ok: false,
+                error: Some(error),
+                ..
+            } = event
+            {
+                tracing::warn!(error = %error.message, "plugin editor session tick pump failed");
+            }
+        }
     }
 
     fn on_windowed(

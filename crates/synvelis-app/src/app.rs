@@ -31,6 +31,7 @@ use ruviform_ui::BackendReport;
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::ipc::{ErrorBody, codes};
 use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use synvelis_library::{GitVcsConfig, GitVcsProvider};
@@ -52,7 +53,7 @@ use crate::engine::SessionRoutingEngine;
 use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
-use crate::plugin_dock::{PluginDock, PluginEditorHost};
+use crate::plugin_dock::{PluginDock, PluginDockSnapshot, PluginEditorHost};
 use crate::revision::HOST_REVISION;
 use crate::screens::{
     MainScreenState, RelationScreenState, SignalFlowScreenState, VcsScreenState,
@@ -87,6 +88,26 @@ const SEEK_MEDIA_RATE: u32 = 48_000;
 /// [`VcsHistoryBackend`]; it is refreshed on every save/open so it
 /// can never lag the saved HEAD (VCS-04 backend wiring, synvelis#95).
 const VCS_PROJECT_FILE: &str = "main.json";
+
+/// Bundle sidecar carrying the PD-07 logical plugin-dock panel state —
+/// the same HEAD-and-sidecar point-in-time pattern as `library-jobs.json`.
+const PLUGIN_DOCKS_SIDECAR: &str = "plugin-docks.json";
+const PLUGIN_DOCKS_FORMAT: &str = "synvelis-plugin-docks/1";
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PluginDockSidecarEntry {
+    view_id: String,
+    snapshot: PluginDockSnapshot,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PluginDocksSidecar {
+    format: String,
+    project_id: String,
+    panels: Vec<PluginDockSidecarEntry>,
+}
 
 /// Audio-runtime owner slot.
 ///
@@ -1020,6 +1041,102 @@ impl SynvelisApp {
         result
     }
 
+    fn persist_plugin_docks(
+        project_id: String,
+        panels: Vec<PluginDockSidecarEntry>,
+        store: &mut dyn ProjectStore,
+    ) -> Result<(), AppError> {
+        let payload = PluginDocksSidecar {
+            format: PLUGIN_DOCKS_FORMAT.to_string(),
+            project_id,
+            panels,
+        };
+        let bytes = serde_json::to_vec(&payload)
+            .map_err(|e| AppError::store(format!("{PLUGIN_DOCKS_SIDECAR}: {e}")))?;
+        store
+            .save_sidecar(PLUGIN_DOCKS_SIDECAR, &bytes)
+            .map_err(|e| AppError::store(e.to_string()))
+    }
+
+    fn plugin_dock_sidecar_entries(&self) -> Vec<PluginDockSidecarEntry> {
+        let mut rows: Vec<_> = self
+            .ui
+            .plugin_docks
+            .iter()
+            .filter_map(|(view, dock)| {
+                dock.save(&self.ui.plugin_sessions)
+                    .ok()
+                    .map(|snapshot| PluginDockSidecarEntry {
+                        view_id: format!("view-{}", view.get()),
+                        snapshot,
+                    })
+            })
+            .collect();
+        rows.sort_by(|a, b| a.view_id.cmp(&b.view_id));
+        rows
+    }
+
+    /// Restores PD-07 logical panels from the bundle sidecar. Runtime
+    /// session/slot/lease/window identities are never re-injected: a
+    /// restored panel is a closed logical panel until an explicit
+    /// open/restore command mints fresh runtime identities.
+    fn restore_plugin_docks(&mut self) -> Result<Value, AppError> {
+        let Some(store) = self.store.as_ref() else {
+            return Ok(json!({ "restored": 0, "rejected": [] }));
+        };
+        let Some(bytes) = store
+            .read_sidecar(PLUGIN_DOCKS_SIDECAR)
+            .map_err(|e| AppError::store(e.to_string()))?
+        else {
+            return Ok(json!({ "restored": 0, "rejected": [] }));
+        };
+        let sidecar: PluginDocksSidecar = serde_json::from_slice(&bytes)
+            .map_err(|e| AppError::store(format!("{PLUGIN_DOCKS_SIDECAR}: {e}")))?;
+        if sidecar.format != PLUGIN_DOCKS_FORMAT {
+            return Err(AppError::store(format!(
+                "{PLUGIN_DOCKS_SIDECAR}: unsupported format {}",
+                sidecar.format
+            )));
+        }
+        if sidecar.project_id != self.workspace.session().project().project_id.to_tagged() {
+            tracing::warn!("plugin dock sidecar names a different project — not restored");
+            return Ok(json!({ "restored": 0, "rejected": [] }));
+        }
+        let mut restored = 0usize;
+        let mut rejected = Vec::new();
+        for entry in sidecar.panels {
+            let Some(view) = crate::ui_ops::parse_view_instance(&entry.view_id) else {
+                rejected.push(json!({ "view_id": entry.view_id, "reason": "invalid_view_id" }));
+                continue;
+            };
+            let instance = synvelis_player::StablePluginInstanceId::new(entry.snapshot.instance);
+            let host_has_instance = self
+                .ui
+                .plugin_editor_host
+                .as_mut()
+                .and_then(|host| host.resolve(instance))
+                .is_some();
+            if !host_has_instance {
+                rejected.push(json!({
+                    "view_id": entry.view_id,
+                    "instance": entry.snapshot.instance,
+                    "reason": "unknown_instance",
+                }));
+                continue;
+            }
+            let Some(authority) = self.ui.native_slot_authority.clone() else {
+                rejected.push(json!({ "view_id": entry.view_id, "reason": "unavailable" }));
+                continue;
+            };
+            self.ui.plugin_docks.insert(
+                view,
+                PluginDock::declare_restored_logical(view, authority, entry.snapshot),
+            );
+            restored += 1;
+        }
+        Ok(json!({ "restored": restored, "rejected": rejected }))
+    }
+
     fn project_new_inner(
         &mut self,
         path: &str,
@@ -1060,7 +1177,13 @@ impl SynvelisApp {
         // reused bundle dir never keeps a foreign project's job rows —
         // the fresh workspace's (empty) ledger is the honest record.
         Self::persist_library_jobs(&workspace, &mut store)?;
+        Self::persist_plugin_docks(
+            workspace.session().project().project_id.to_tagged(),
+            Vec::new(),
+            &mut store,
+        )?;
         Self::refresh_project_file(&store, path)?;
+        self.converge_plugin_docks_for_project_boundary();
         self.workspace = workspace;
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
@@ -1121,6 +1244,7 @@ impl SynvelisApp {
             .load(&store)
             .map_err(|e| AppError::store(e.to_string()))?;
         Self::refresh_project_file(&store, path)?;
+        self.converge_plugin_docks_for_project_boundary();
         self.workspace = workspace;
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
@@ -1148,7 +1272,10 @@ impl SynvelisApp {
         // honest about failure (corrupt/unknown-format errors open
         // instead of silently dropping the receipts).
         self.restore_library_jobs()?;
-        Ok(self.project_info())
+        let plugin_docks = self.restore_plugin_docks()?;
+        let mut info = self.project_info();
+        info["plugin_docks"] = plugin_docks;
+        Ok(info)
     }
 
     /// Reopens the bundle this session was created or opened from,
@@ -1182,6 +1309,7 @@ impl SynvelisApp {
     }
 
     fn project_save_inner(&mut self) -> Result<Value, AppError> {
+        let dock_rows = self.plugin_dock_sidecar_entries();
         let store = self
             .store
             .as_mut()
@@ -1196,6 +1324,11 @@ impl SynvelisApp {
         // in-flight job is persisted as in-flight (recovery assigns
         // the typed terminal at open).
         Self::persist_library_jobs(&self.workspace, store)?;
+        Self::persist_plugin_docks(
+            self.workspace.session().project().project_id.to_tagged(),
+            dock_rows,
+            store,
+        )?;
         let bundle_path = self
             .bundle_path
             .clone()

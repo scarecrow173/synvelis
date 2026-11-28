@@ -63,8 +63,8 @@ use ruviform_plugin_host::{
 };
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::native_slot::{
-    NativeSurfaceSlot, SlotCapabilities, SlotError, SlotGeometry, SlotLease, SlotSpec, SlotState,
-    SlotVisibility, Support, SurfaceSlotId,
+    LogicalRect, NativeSurfaceSlot, SlotCapabilities, SlotError, SlotGeometry, SlotLease, SlotSpec,
+    SlotState, SlotVisibility, Support, SurfaceSlotId,
 };
 use ruviform_ui::view::{
     A11ySpec, AttachEpochAllocator, ComponentKey, ComponentSpec, ComponentVisualState, LabelSpec,
@@ -190,8 +190,19 @@ pub struct PluginDockSnapshot {
     pub placement: PluginDockPlacement,
     /// `[width, height]` logical editor size.
     pub size: [f64; 2],
+    /// Logical editor origin inside the panel (`[x, y]`). Defaults to
+    /// the panel origin for snapshots written before geometry persistence.
+    #[serde(default)]
+    pub origin: [f64; 2],
+    /// Logical scale factor recorded with the geometry.
+    #[serde(default = "default_snapshot_scale_factor")]
+    pub scale_factor: f64,
     /// Whether the editor was visible when saved.
     pub visible: bool,
+}
+
+fn default_snapshot_scale_factor() -> f64 {
+    1.0
 }
 
 /// The live four-identity binding of an occupied panel.
@@ -607,6 +618,11 @@ pub struct PluginDock {
     /// loss) so a re-attach on a new window re-declares the same
     /// logical shape.
     last_geometry: SlotGeometry,
+    /// Logical state restored from a project sidecar while no editor
+    /// session is live. This is not an occupied binding: the panel
+    /// starts honestly closed and an explicit open/restore command is
+    /// required to mint runtime session/slot/lease identities.
+    restored_logical: Option<PluginDockSnapshot>,
 }
 
 // `dyn NativeSlotAuthority` is not `Debug` (the driver's shared
@@ -648,7 +664,43 @@ impl PluginDock {
             authority,
             binding: None,
             last_geometry: geometry,
+            restored_logical: None,
         })
+    }
+
+    /// Declares a logical restored panel without a window, slot, lease,
+    /// or editor session. Project-open persistence uses this honest
+    /// shape: runtime identities are minted only by a later explicit
+    /// open/restore command.
+    #[must_use]
+    pub fn declare_restored_logical(
+        view: ViewInstanceId,
+        authority: SharedNativeSlotAuthority,
+        snapshot: PluginDockSnapshot,
+    ) -> Self {
+        let geometry = SlotGeometry {
+            rect: LogicalRect {
+                x: snapshot.origin[0],
+                y: snapshot.origin[1],
+                width: snapshot.size[0],
+                height: snapshot.size[1],
+            },
+            scale_factor: snapshot.scale_factor,
+        };
+        Self {
+            view,
+            slot: None,
+            authority,
+            binding: None,
+            last_geometry: geometry,
+            restored_logical: Some(snapshot),
+        }
+    }
+
+    /// The logical snapshot restored into an otherwise empty panel.
+    #[must_use]
+    pub fn restored_logical(&self) -> Option<&PluginDockSnapshot> {
+        self.restored_logical.as_ref()
     }
 
     fn slot_spec(view: ViewInstanceId, window: WindowId, geometry: SlotGeometry) -> SlotSpec {
@@ -854,6 +906,7 @@ impl PluginDock {
         size: EditorSize,
         mode: AttachMode,
     ) -> Result<PluginDockReport, PluginDockError> {
+        self.restored_logical = None;
         let slot = self.slot.ok_or(PluginDockError::NoSlot)?;
         if self.binding.is_some() {
             return Err(PluginDockError::Occupied);
@@ -1343,7 +1396,12 @@ impl PluginDock {
         &self,
         sessions: &PluginEditorSessions,
     ) -> Result<PluginDockSnapshot, PluginDockError> {
-        let binding = self.binding.ok_or(PluginDockError::NoEditor)?;
+        let Some(binding) = self.binding else {
+            return self
+                .restored_logical
+                .clone()
+                .ok_or(PluginDockError::NoEditor);
+        };
         let visible = sessions
             .session(binding.session)
             .is_some_and(|s| matches!(s.state(), EditorSessionState::Attached { .. }));
@@ -1351,6 +1409,8 @@ impl PluginDock {
             instance: binding.instance.get(),
             placement: binding.placement,
             size: [binding.size.width, binding.size.height],
+            origin: [self.last_geometry.rect.x, self.last_geometry.rect.y],
+            scale_factor: self.last_geometry.scale_factor,
             visible,
         })
     }

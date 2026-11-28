@@ -1598,3 +1598,118 @@ fn plugin_dock_ops_do_not_touch_project_or_dsp_state() {
         "non-plugin views must be untouched by plugin dock ops"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Session integration — project boundary and PD-07 sidecar persistence
+// ---------------------------------------------------------------------------
+
+fn direct_app_with_host(instance: u64) -> (SynvelisApp, SharedNativeSlotAuthority) {
+    let mut app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
+    let mut host = FakeEditorHost::new();
+    host.add_instance(instance);
+    app.set_plugin_editor_host(Box::new(host));
+    let authority = test_authority();
+    app.set_native_slot_authority(authority.clone());
+    (app, authority)
+}
+
+fn direct_temp_bundle(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "synvelis-sv176-{name}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos()
+    ));
+    dir
+}
+
+fn direct_open_editor(app: &mut SynvelisApp, instance: u64) {
+    app.op_window_lifecycle(&json!({
+        "window_id": "w1",
+        "event": "created",
+        "title": "Synvelis",
+    }))
+    .expect("adopt window");
+    app.op_plugin_dock_open(&json!({
+        "view_id": "view-9",
+        "window_id": "w1",
+        "instance": instance,
+        "x": 12.0,
+        "y": 34.0,
+        "scale_factor": 1.5,
+    }))
+    .expect("open plugin dock");
+}
+
+#[test]
+fn project_boundary_retires_panel_session_lease_and_slot() {
+    let (mut app, authority) = direct_app_with_host(7);
+    let bundle = direct_temp_bundle("boundary-a");
+    let next = direct_temp_bundle("boundary-b");
+    app.project_new(&bundle.to_string_lossy(), Some("a"))
+        .expect("project a");
+    direct_open_editor(&mut app, 7);
+    let before = app.plugin_dock_panel("view-9").expect("panel before");
+    let slot = before.slot().expect("slot before");
+    assert_eq!(
+        authority.borrow().state(slot).ok().flatten(),
+        Some(SlotState::Leased)
+    );
+
+    app.project_new(&next.to_string_lossy(), Some("b"))
+        .expect("project b");
+
+    assert!(app.plugin_dock_panel("view-9").is_none());
+    assert_eq!(
+        authority.borrow().state(slot).ok().flatten(),
+        Some(SlotState::Released),
+        "the old project's slot must not survive the boundary"
+    );
+    let err = app
+        .op_plugin_dock_open(&json!({
+            "view_id": "view-10",
+            "window_id": "w1",
+            "instance": 7,
+        }))
+        .expect_err("window adoption is project/workspace scoped");
+    assert!(err.message.contains("not adopted"));
+}
+
+#[test]
+fn project_save_open_restores_pd07_logical_panel_closed() {
+    let (mut app, _authority) = direct_app_with_host(7);
+    let bundle = direct_temp_bundle("pd07");
+    app.project_new(&bundle.to_string_lossy(), Some("pd07"))
+        .expect("project new");
+    direct_open_editor(&mut app, 7);
+    app.project_save().expect("project save");
+
+    app.project_open(&bundle.to_string_lossy())
+        .expect("project open");
+    let state = app.plugin_dock_state("view-9").expect("restored panel");
+    assert_eq!(state["instance"], 7);
+    assert_eq!(state["placement"], "docked");
+    assert_eq!(state["session_state"], "closed");
+    assert!(state["session"].is_null(), "no session id is restored");
+    assert!(state["slot"].is_null(), "no slot id is restored");
+    assert_eq!(state["restored"]["origin"], json!([12.0, 34.0]));
+    assert_eq!(state["restored"]["scale_factor"], 1.5);
+    assert_eq!(state["restored"]["size"], json!([800.0, 600.0]));
+    for banned in ["lease", "handle"] {
+        assert!(state["restored"].get(banned).is_none());
+    }
+
+    // The logical panel is not a fake live editor: an explicit open
+    // command is required, and it fails honestly until the view/window
+    // are part of the new workspace.
+    let err = app
+        .op_plugin_dock_open(&json!({
+            "view_id": "view-9",
+            "window_id": "w1",
+            "instance": 7,
+        }))
+        .expect_err("explicit reopen needs an adopted window");
+    assert!(err.message.contains("not adopted"));
+}
