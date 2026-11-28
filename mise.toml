@@ -112,6 +112,22 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 description = "Build the TIM-03 L1 runners and run the frame/boundary matrix tests"
 run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-player --test tim03_process_boundary --test tim03_request_plan --test tim03_loop_boundary --test tim03_driver_loop_boundary -- --test-threads=1 --nocapture && cargo test --locked -p synvelis-app --test tim03_l1_frame_boundary_matrix -- --ignored --test-threads=1 --nocapture"
 
+# TIM-04 (#128) L1 state/fault slice: test-only tim04 runner と
+# VST3/CLAP fixture cdylib を先に build し、out-of-process real ABI
+# state/fault tests を opt-in で実行する。dedicated lane だけが
+# artifact-dependent test を実行し、generic workspace-wide / MSRV lane では
+# これらを実行しない。
+[tasks.test-tim04-l1]
+description = "Build the TIM-04 L1 runner and fixture artifacts and run the L1 state/fault tests"
+run = "cargo build --locked -p ruviform-plugin-test-vst3 -p ruviform-plugin-test-clap && cargo build --locked -p synvelis-player --bin tim04-l1-plugin-runner && cargo test --locked -p synvelis-player --test tim04_l1_abi_state -- --ignored --test-threads=1 --nocapture"
+
+# TIM-04 (#128) real ABI state slice: VST3/CLAP fixture cdylib を先に
+# build し、in-process production PluginHost 経由の artifact-dependent
+# state tests を opt-in で実行する。
+[tasks.test-tim04-real-abi]
+description = "Build the TIM-04 fixture artifacts and run the real ABI state tests"
+run = "cargo build --locked -p ruviform-plugin-test-vst3 -p ruviform-plugin-test-clap && cargo test --locked -p synvelis-player --test tim04_real_abi_state -- --ignored --test-threads=1 --nocapture"
+
 # RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
 # real-device feature で ruviform-audio-device/cpal を有効化し、
 # tests/real_input.rs の #[ignore] test のみを実行する。
