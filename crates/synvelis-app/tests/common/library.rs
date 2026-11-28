@@ -6,6 +6,7 @@
 
 use std::io::Read;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use ruviform_ui::BackendReport;
 use serde_json::{Value, json};
@@ -20,7 +21,7 @@ use synvelis_library::{
     ProviderId, ProviderKind, ProviderRegistry, RemoteAssetRef, RevisionKey, SearchQuery,
     UnavailableReason, VerificationPolicy,
 };
-use synvelis_workspace::LibraryBackend;
+use synvelis_workspace::{LibraryBackend, LibraryJobLedger};
 
 /// Default fake provider id (`ProviderId::new(1)` tagged form).
 pub const PROVIDER_TAG: &str = "provider-00000000000000000000000000000001";
@@ -580,20 +581,160 @@ pub fn preview_key(view_id: &str) -> String {
     format!("preview:v{}", view_id.trim_start_matches("view-"))
 }
 
+/// Upper bound shared by every ALIB-05 harness wait. Local headless
+/// imports complete in well under a second; the bound exists only for
+/// Windows CI durable-I/O and scheduling latency, not for a worker that
+/// is truly stuck.
+pub const JOB_WAIT_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Poll spacing shared by every ALIB-05 harness wait. Twenty
+/// milliseconds keeps the observation well below the durable-I/O time
+/// scale without the several-hundred-Hz polling the old helpers used.
+pub const JOB_WAIT_INTERVAL: Duration = Duration::from_millis(20);
+
+/// Runs `probe` immediately, then every [`JOB_WAIT_INTERVAL`] until it
+/// yields a value or [`JOB_WAIT_TIMEOUT`] elapses. The diagnostic is
+/// evaluated only on timeout so passing waits do not serialize extra
+/// ledger state.
+///
+/// # Panics
+/// Panics with `timeout_diagnostic` when the deadline elapses.
+pub fn bounded_wait<T>(
+    description: &str,
+    mut probe: impl FnMut() -> Option<T>,
+    timeout_diagnostic: impl FnOnce() -> String,
+) -> T {
+    let started = Instant::now();
+    loop {
+        if let Some(value) = probe() {
+            return value;
+        }
+        assert!(
+            started.elapsed() < JOB_WAIT_TIMEOUT,
+            "timed out after {JOB_WAIT_TIMEOUT:?} waiting for {description} (poll interval {JOB_WAIT_INTERVAL:?}): {}",
+            timeout_diagnostic()
+        );
+        std::thread::sleep(JOB_WAIT_INTERVAL);
+    }
+}
+
+/// Shared handle to the app-owned raw job ledger. Reads through this
+/// handle do not run `reconcile_jobs`, so they can observe
+/// `commit-pending` without consuming it.
+pub fn shared_job_ledger(app: &SynvelisApp) -> Arc<Mutex<LibraryJobLedger>> {
+    app.workspace().library().jobs()
+}
+
+fn raw_ledger_values(ledger: &Arc<Mutex<LibraryJobLedger>>) -> Option<Vec<Value>> {
+    Some(
+        ledger
+            .lock()
+            .ok()?
+            .snapshot()
+            .into_iter()
+            .map(|job| serde_json::to_value(job).expect("library job wire serializes"))
+            .collect(),
+    )
+}
+
+/// The raw ledger entry for `key`, when registered. Unlike [`job`],
+/// this read never reconciles a parked commit first.
+pub fn raw_job(ledger: &Arc<Mutex<LibraryJobLedger>>, key: &str) -> Option<Value> {
+    raw_ledger_values(ledger)?
+        .into_iter()
+        .find(|j| j["job_key"].as_str() == Some(key))
+}
+
+fn compact_json(value: &Value) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| "<unserializable>".to_string())
+}
+
+fn job_field(job: &Value, field: &str) -> String {
+    job.get(field)
+        .map_or_else(|| "<absent>".to_string(), compact_json)
+}
+
+fn summarize_raw_job(job: Option<&Value>) -> String {
+    job.map_or_else(
+        || "<missing>".to_string(),
+        |j| {
+            format!(
+                "state={} stage={} progress={} pending_commit={} runtime_job={} terminal={} cancel_requested={} epoch={}",
+                job_field(j, "state"),
+                job_field(j, "stage"),
+                job_field(j, "progress"),
+                job_field(j, "pending_commit"),
+                job_field(j, "runtime_job"),
+                job_field(j, "terminal"),
+                job_field(j, "cancel_requested"),
+                job_field(j, "epoch"),
+            )
+        },
+    )
+}
+
+fn timeout_classification(job: Option<&Value>) -> &'static str {
+    let Some(job) = job else {
+        return "ledger-entry-missing: key registration, persistence, or correlation is suspect";
+    };
+    if job["pending_commit"].as_bool() == Some(true) {
+        return "commit-pending-visible: the worker reached its park boundary; direct ledger waits implicate reconcile/replay, while runtime event waits implicate terminal-event delivery";
+    }
+    match job["state"].as_str() {
+        Some("done") => {
+            "terminal-present: the ledger reached done, so the reconciled observation or test expectation is the boundary"
+        }
+        Some("queued") => {
+            "worker-not-started: the entry stayed queued without progress, so runtime worker startup or scheduling is suspect"
+        }
+        Some("running" | "cancel-requested") => {
+            "worker-in-flight: compare stage/progress with durable-I/O latency to distinguish a slow import from a true worker stall"
+        }
+        _ => "state-unknown: inspect the raw ledger fields",
+    }
+}
+
+/// Timeout diagnostic keyed by the raw ledger — state, stage, progress,
+/// `pending_commit`, runtime correlation, and terminal receipt — plus a
+/// cause-family hint for triage.
+pub fn raw_job_timeout_diagnostic(
+    ledger: &Arc<Mutex<LibraryJobLedger>>,
+    key: &str,
+    waiting_for: &str,
+) -> String {
+    let Some(jobs) = raw_ledger_values(ledger) else {
+        return format!(
+            "waiting_for={waiting_for}; key={key}; raw ledger lock unavailable; classification=ledger-observation-failure"
+        );
+    };
+    let raw = jobs.iter().find(|j| j["job_key"].as_str() == Some(key));
+    let keys = jobs
+        .iter()
+        .filter_map(|j| j["job_key"].as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "waiting_for={waiting_for}; key={key}; raw_ledger={}; classification={}; ledger_keys=[{keys}]",
+        summarize_raw_job(raw),
+        timeout_classification(raw),
+    )
+}
+
 /// The headless job drain for the direct `op_*` surface: polls
 /// `syn.library.jobs` until `key` reaches `done`. The jobs read
 /// reconciles a parked commit first, so a returned `committed-live`
 /// terminal is already project truth — never a scratch-only receipt.
 pub fn wait_job(app: &mut SynvelisApp, key: &str) -> Value {
-    for _ in 0..2000 {
-        if let Some(j) = job(app, key)
-            && j["state"].as_str() == Some("done")
-        {
-            return j;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    panic!("job {key} never reached a terminal state");
+    let ledger = shared_job_ledger(app);
+    let description = format!("job {key} to reach done");
+    bounded_wait(
+        &description,
+        || match job(app, key) {
+            Some(j) if j["state"].as_str() == Some("done") => Some(j),
+            _ => None,
+        },
+        || raw_job_timeout_diagnostic(&ledger, key, "done"),
+    )
 }
 
 /// Polls the ledger until `key` reports `stage` — the deterministic
@@ -601,15 +742,47 @@ pub fn wait_job(app: &mut SynvelisApp, key: &str) -> Value {
 /// `fetching`, `verifying`, `materializing`; `commit-pending` is
 /// transient because the same read reconciles it).
 pub fn wait_stage(app: &mut SynvelisApp, key: &str, stage: &str) -> Value {
-    for _ in 0..2000 {
-        if let Some(j) = job(app, key)
-            && j["stage"].as_str() == Some(stage)
-        {
-            return j;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    panic!("job {key} never reached stage {stage}");
+    let ledger = shared_job_ledger(app);
+    let description = format!("job {key} to reach stage {stage}");
+    bounded_wait(
+        &description,
+        || match job(app, key) {
+            Some(j) if j["stage"].as_str() == Some(stage) => Some(j),
+            _ => None,
+        },
+        || raw_job_timeout_diagnostic(&ledger, key, &format!("stage {stage}")),
+    )
+}
+
+/// Polls until the job is visible on the reconcile-first ledger read.
+pub fn wait_job_registered(app: &mut SynvelisApp, key: &str) -> Value {
+    let ledger = shared_job_ledger(app);
+    let description = format!("job {key} to register");
+    bounded_wait(
+        &description,
+        || job(app, key),
+        || raw_job_timeout_diagnostic(&ledger, key, "registration"),
+    )
+}
+
+/// Waits on the raw ledger until `key` either parks at
+/// `commit-pending` (`pending_commit=true`) or records a terminal.
+/// This read deliberately skips the reconcile-first `syn.library.jobs`
+/// surface so restart tests can save the still-owed commit.
+pub fn wait_raw_commit_boundary(app: &SynvelisApp, key: &str) -> Value {
+    let ledger = shared_job_ledger(app);
+    let probe_ledger = Arc::clone(&ledger);
+    let description = format!("job {key} to reach pending_commit or terminal");
+    bounded_wait(
+        &description,
+        || {
+            raw_job(&probe_ledger, key).and_then(|j| {
+                (j["pending_commit"].as_bool() == Some(true) || j["state"].as_str() == Some("done"))
+                    .then_some(j)
+            })
+        },
+        || raw_job_timeout_diagnostic(&ledger, key, "pending_commit or terminal"),
+    )
 }
 
 /// Shared release gate — a fixture parks a job on it, the test
@@ -649,7 +822,7 @@ struct GatedReader {
 impl Read for GatedReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         while !self.gate.is_open() && !self.cancel.is_cancelled() {
-            std::thread::sleep(std::time::Duration::from_millis(2));
+            std::thread::sleep(JOB_WAIT_INTERVAL);
         }
         if self.delivered || self.cancel.is_cancelled() {
             return Ok(0);
@@ -691,7 +864,7 @@ impl synvelis_library::BlobPublisher for GatePublisher {
         while !self.gate.is_open() {
             cx.check_interrupts()
                 .map_err(synvelis_library::BlobPublishError::Interrupted)?;
-            std::thread::sleep(std::time::Duration::from_millis(2));
+            std::thread::sleep(JOB_WAIT_INTERVAL);
         }
         synvelis_library::StagedBlobPublisher.publish(
             staged_source,

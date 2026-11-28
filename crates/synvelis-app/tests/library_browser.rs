@@ -123,6 +123,7 @@ fn job_actions_run_through_runtime_job_lane() {
     let (mut app, dir) = app_with_import("rtjobs");
     let view = open_view(&mut app);
     select_and_browse(&mut app, &view);
+    let ledger = shared_job_ledger(&app);
     let service = AppService::new(app);
     let mut rt = UiRuntime::new(DataRegistry::new());
     rt.register_service(service).expect("register AppService");
@@ -154,23 +155,30 @@ fn job_actions_run_through_runtime_job_lane() {
 
     // The job parks at commit-pending — the ledger reconcile owns the
     // live commit, so `Finished` carries the parked outcome.
-    let mut saw_finish = false;
-    for _ in 0..100 {
-        for e in rt.poll(Some(std::time::Duration::from_millis(50))) {
-            if let Event::Job {
-                job,
-                state: JobState::Finished,
-                ..
-            } = e
-                && job == job_id
-            {
-                saw_finish = true;
+    let saw_finish = bounded_wait(
+        "runtime import job Finished event",
+        || {
+            let mut saw = false;
+            for e in rt.poll(Some(JOB_WAIT_INTERVAL)) {
+                if let Event::Job {
+                    job,
+                    state: JobState::Finished,
+                    ..
+                } = e
+                    && job == job_id
+                {
+                    saw = true;
+                }
             }
-        }
-        if saw_finish {
-            break;
-        }
-    }
+            saw.then_some(true)
+        },
+        || {
+            format!(
+                "runtime_job_id={job_id}; {}",
+                raw_job_timeout_diagnostic(&ledger, &import_key(8), "runtime Finished event")
+            )
+        },
+    );
     assert!(saw_finish, "import job never produced a Finished event");
 
     // The same ledger the direct spawn writes — `syn.library.jobs`
@@ -1178,17 +1186,7 @@ fn preview_fetch_job_cancels_cooperatively() {
         }),
     );
     let key = preview_key(&view);
-    // Wait until the fetch job is live in the ledger.
-    for _ in 0..2000 {
-        if job(&mut app, &key).is_some() {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    assert!(
-        job(&mut app, &key).is_some(),
-        "preview job never registered"
-    );
+    wait_job_registered(&mut app, &key);
 
     action(&mut app, &view, json!({ "action": "preview.cancel" }));
     let j = wait_job(&mut app, &key);
