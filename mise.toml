@@ -67,11 +67,11 @@ run = "cargo test --workspace --locked rt_"
 # fixture cdylib の両方を同一 locked graph で build する入口。
 [tasks.test-tim03-l1]
 description = "Build the test-only TIM-03 L1 runners and run the synvelis-app L1 process oracle"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_process_oracle -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_process_oracle -- --ignored --test-threads=1 --nocapture"
 
 [tasks.test-pc-c4-l1]
 description = "Build the test-only L1 runners and run the PC-C4 real ABI binding tests"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test pc_c4_l1_real_abi_binding -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test pc_c4_l1_real_abi_binding -- --ignored --test-threads=1 --nocapture"
 
 # TIM-03 (#127) transport application slice: production composition に
 # BoundaryDeclaration を供給し、tempo/loop/seek/automation を実 L1
@@ -79,7 +79,7 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 # fixture artifact resolution contract は test-tim03-l1 / test-pc-c4-l1 と同じ。
 [tasks.test-tim03-transport]
 description = "Build the test-only TIM-03 L1 runners and run the transport application tests"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_transport_application -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_transport_application -- --ignored --test-threads=1 --nocapture"
 
 # TIM-03 (#127) instrument transport oracle slice: direct L1 endpoint に
 # caller supplied TransportInfo を供給し、ruviform#630 test_instrument の
@@ -87,14 +87,14 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 # production graph end-to-end musical handoff は upstream gap のため対象外。
 [tasks.test-tim03-instrument-transport]
 description = "Build the test-only TIM-03 L1 runners and run the instrument transport oracle"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_instrument_transport -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_instrument_transport -- --ignored --test-threads=1 --nocapture"
 
 # TIM-03 (#127) production musical transport slice: production composition
 # → PluginNode → real ABI test_instrument を project-owned tempo map/PPQNで
 # 検証する dedicated lane。direct endpoint API は使わない。
 [tasks.test-tim03-production-transport]
 description = "Build the test-only TIM-03 L1 runners and run the production musical transport tests"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --ignored --test-threads=1 --nocapture"
 
 # TIM-03 (#127) representative dynamic musical transport refresh slice:
 # 同一 production oracle binary が baseline production evidence と dynamic
@@ -102,7 +102,7 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 # direct endpoint API は使わない。
 [tasks.test-tim03-dynamic-musical-transport]
 description = "Build the test-only TIM-03 L1 runners and run the dynamic musical transport tests"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --ignored --test-threads=1 --nocapture"
 
 # TIM-03 (#127) frame/boundary/event-order matrix slice: headless exact
 # matrix oracleと production composition → PluginNode → real ABI
@@ -110,7 +110,7 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 # ABI Pass に昇格しない。
 [tasks.test-tim03-frame-boundary-matrix]
 description = "Build the TIM-03 L1 runners and run the frame/boundary matrix tests"
-run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-player --test tim03_process_boundary --test tim03_request_plan --test tim03_loop_boundary --test tim03_driver_loop_boundary -- --test-threads=1 --nocapture && cargo test --locked -p synvelis-app --test tim03_l1_frame_boundary_matrix -- --test-threads=1 --nocapture"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-player --test tim03_process_boundary --test tim03_request_plan --test tim03_loop_boundary --test tim03_driver_loop_boundary -- --test-threads=1 --nocapture && cargo test --locked -p synvelis-app --test tim03_l1_frame_boundary_matrix -- --ignored --test-threads=1 --nocapture"
 
 # RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
 # real-device feature で ruviform-audio-device/cpal を有効化し、

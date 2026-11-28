@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "tim-03-transport-application"
 created: "2026-11-27"
-updated: "2026-11-27"
+updated: "2026-11-28"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -65,8 +65,9 @@ Fixture: `crates/synvelis-app/tests/tim03_l1_transport_application.rs`、
   normalized-as-plain 相当の `input*0.25` block は 0 件。
 - **TA-07 negative evidence**: published だが inactive な generation への transport application は
   typed `InactiveGeneration { surface, active }` で失敗する。
-- **TA-08 determinism/ordering**: runner build → integration test は
-  `mise run test-tim03-transport` に束ね、test は `--test-threads=1` で実行する。
+- **TA-08 determinism/ordering**: runner build → integration test は dedicated opt-in lane
+  `mise run test-tim03-transport` に束ね、test は `--ignored` と `--test-threads=1` で実行する。
+  この artifact-dependent test は generic workspace-wide / MSRV / RT lane の対象外とする。
 
 ## Evidence
 

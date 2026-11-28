@@ -636,12 +636,14 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-l1`)"]
 fn tim03_l1_vst3_production_wiring_and_limited_process_oracle() {
     let (probe, _library) = load_vst3();
     exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);
 }
 
 #[test]
+#[ignore = "artifact-dependent L1 lane: requires prebuilt test-only runner (run `mise run test-tim03-l1`)"]
 fn tim03_l1_clap_production_wiring_and_limited_process_oracle() {
     let (probe, _library) = load_clap();
     exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);
