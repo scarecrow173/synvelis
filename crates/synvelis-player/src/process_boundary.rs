@@ -1367,6 +1367,18 @@ impl WrapSim {
         Some(after.saturating_add(u64::try_from(delta).unwrap_or(u64::MAX)))
     }
 
+    /// Device restart — the same transport-state reset upstream
+    /// `TransportScheduler::device_restart` performs: stop at position
+    /// zero on the new epoch's base frame and restart occurrence
+    /// counting. The loop region is deliberately preserved, matching
+    /// upstream; restart is a clock-epoch discontinuity, not a
+    /// `ClearLoop` command.
+    pub(crate) fn device_restart(&mut self, base_frame: u64) {
+        self.status = TransportStatus::Stopped;
+        self.anchor_frame = base_frame;
+        self.anchor_pos = 0;
+    }
+
     /// `do_wrap` — re-anchors at `loop_start + overflow`. A position
     /// already past the end cascades algebraically: repeated wraps at
     /// the same frame each subtract `end - start`, landing the anchor

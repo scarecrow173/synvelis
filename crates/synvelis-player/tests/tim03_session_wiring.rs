@@ -1,7 +1,8 @@
 //! TIM-03 session→driver/routing wiring acceptance tests — Issue #127
 //! slice 3 (headless mock; spec `docs/specs/tim-03-session-driver-wiring.md`,
 //! test spec rules SW-01..SW-10 in
-//! `docs/test-specs/tim-03-session-driver-wiring.md`).
+//! `docs/test-specs/tim-03-session-driver-wiring.md`, plus the lease-local
+//! SW-11/SW-12 clock-restart core-semantics cases).
 //!
 //! Two composition paths under test:
 //!
@@ -29,11 +30,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use ruviform_audio_core::{AudioFormat, ChannelLayout, SampleFormat, SampleRate};
-use ruviform_audio_plugin_bridge::{AttachConfig, attach};
+use ruviform_audio_plugin_bridge::{AttachConfig, DispatchStage, attach};
 use ruviform_graph::{GraphBuilder, NodeDef, NodeId, NodeKind};
 use ruviform_media_core::{
-    BlockContract, DeliveryPolicy, InBlockTransportSupport, LoopOccurrence, MediaTime,
-    ScheduleBudget, TimeBase, TransportCommand, TransportStatus,
+    ApplyStatus, BlockContract, DeliveryPolicy, InBlockTransportSupport, LoopOccurrence, MediaTime,
+    MidiChannel, MidiEvent, MidiGroup, MidiKind, MidiValue, NoteKey, RejectReason, ScheduleBudget,
+    TimeBase, TransportCommand, TransportStatus,
 };
 use ruviform_media_reader::PrefetchConfig;
 use ruviform_plugin_core::{
@@ -112,8 +114,17 @@ struct Delivered {
     value: f64,
 }
 
+/// One delivered note event at its absolute engine frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeliveredMidi {
+    abs_frame: u64,
+    key: u8,
+    on: bool,
+}
+
 struct RecPlugin {
     delivered: Arc<Mutex<Vec<Delivered>>>,
+    midi: Arc<Mutex<Vec<DeliveredMidi>>>,
 }
 
 impl PluginProcessor for RecPlugin {
@@ -139,13 +150,28 @@ impl PluginProcessor for RecPlugin {
     {
         let pos = transport.map_or(0, |t| t.position().value());
         for ev in events.iter() {
-            if let EventKind::ParamValue(pe) = ev.kind() {
-                #[allow(clippy::cast_sign_loss)]
-                self.delivered.lock().unwrap().push(Delivered {
-                    abs_frame: (pos + i64::from(ev.frame_offset())) as u64,
-                    param_id: pe.param_id.0,
-                    value: pe.value.get(),
-                });
+            match ev.kind() {
+                EventKind::ParamValue(pe) => {
+                    #[allow(clippy::cast_sign_loss)]
+                    self.delivered.lock().unwrap().push(Delivered {
+                        abs_frame: (pos + i64::from(ev.frame_offset())) as u64,
+                        param_id: pe.param_id.0,
+                        value: pe.value.get(),
+                    });
+                }
+                EventKind::Midi(me) => {
+                    if let Some(on) = me.effective_note_state()
+                        && let Some(key) = me.ledger_key()
+                    {
+                        #[allow(clippy::cast_sign_loss)]
+                        self.midi.lock().unwrap().push(DeliveredMidi {
+                            abs_frame: (pos + i64::from(ev.frame_offset())) as u64,
+                            key: key.key.get(),
+                            on,
+                        });
+                    }
+                }
+                _ => {}
             }
         }
         ProcessResult::CONTINUE
@@ -166,6 +192,7 @@ impl Plugin for RecPlugin {
 
 struct RecFactory {
     delivered: Arc<Mutex<Vec<Delivered>>>,
+    midi: Arc<Mutex<Vec<DeliveredMidi>>>,
 }
 
 impl PluginFactory for RecFactory {
@@ -175,11 +202,13 @@ impl PluginFactory for RecFactory {
     fn create(&self) -> Box<dyn ErasedPlugin> {
         erase(RecPlugin {
             delivered: Arc::clone(&self.delivered),
+            midi: Arc::clone(&self.midi),
         })
     }
     fn create_sendable(&self) -> Option<Box<dyn ErasedPlugin + Send>> {
         Some(erase_sendable(RecPlugin {
             delivered: Arc::clone(&self.delivered),
+            midi: Arc::clone(&self.midi),
         }))
     }
 }
@@ -210,13 +239,16 @@ struct Hosted {
     _host: PluginHost,
     attached: ruviform_audio_plugin_bridge::Attached,
     delivered: Arc<Mutex<Vec<Delivered>>>,
+    midi: Arc<Mutex<Vec<DeliveredMidi>>>,
 }
 
 fn host_plugin() -> Hosted {
     let delivered = Arc::new(Mutex::new(Vec::new()));
+    let midi = Arc::new(Mutex::new(Vec::new()));
     let mut host = PluginHost::new();
     host.register_factory(Box::new(RecFactory {
         delivered: Arc::clone(&delivered),
+        midi: Arc::clone(&midi),
     }));
     let HostReply::Instantiated { handle } = host
         .execute(HostCommand::Instantiate {
@@ -257,6 +289,7 @@ fn host_plugin() -> Hosted {
         _host: host,
         attached,
         delivered,
+        midi,
     }
 }
 
@@ -611,7 +644,10 @@ fn catalog(processors: &[ProcessorId]) -> synvelis_player::routing_control::Para
 fn rec_host() -> PluginHostProcessors {
     let delivered = Arc::new(Mutex::new(Vec::new()));
     let mut host = PluginHost::new();
-    host.register_factory(Box::new(RecFactory { delivered }));
+    host.register_factory(Box::new(RecFactory {
+        delivered,
+        midi: Arc::new(Mutex::new(Vec::new())),
+    }));
     PluginHostProcessors::new(host)
 }
 
@@ -1255,4 +1291,306 @@ fn tim03_sw_06_routing_stale_provenance_and_generation_swap() {
     dispatch
         .boundary_stage_window(ids.first, c.live(), 256, vec![], &[], Some(2))
         .expect("gen-2 stage_window");
+}
+
+fn note_on(key: u8) -> MidiEvent {
+    MidiEvent {
+        group: MidiGroup::ZERO,
+        channel: MidiChannel::new(0).unwrap(),
+        kind: MidiKind::NoteOn {
+            key: NoteKey::new(key).unwrap(),
+            velocity: MidiValue::from_u7(100),
+        },
+    }
+}
+
+fn writes_pair(
+    first_pos: i64,
+    first_value: f64,
+    second_pos: i64,
+    second_value: f64,
+) -> Vec<(ParameterTargetId, TimedParamEvent)> {
+    let base = frame_base();
+    let target = ParameterTargetId::new(1);
+    [(first_pos, first_value), (second_pos, second_value)]
+        .into_iter()
+        .map(|(pos, value)| {
+            (
+                target,
+                TimedParamEvent {
+                    position: MediaTime::new(pos, base),
+                    event: ParamEvent {
+                        param_id: ParamId(7),
+                        value: ParamValue::new(value).unwrap(),
+                    },
+                },
+            )
+        })
+        .collect()
+}
+
+fn restart_expected_delivered() -> Vec<Delivered> {
+    vec![
+        Delivered {
+            abs_frame: 160,
+            param_id: 7,
+            value: 0.25,
+        },
+        Delivered {
+            abs_frame: 416,
+            param_id: 7,
+            value: 0.75,
+        },
+        Delivered {
+            abs_frame: 448,
+            param_id: 7,
+            value: 1.0,
+        },
+    ]
+}
+
+struct ClockFixture {
+    _host: PluginHost,
+    delivered: Arc<Mutex<Vec<Delivered>>>,
+    midi: Arc<Mutex<Vec<DeliveredMidi>>>,
+}
+
+fn clock_restart_driver() -> (HeadlessDriver, ClockFixture, Vec<NodeId>) {
+    let (lowered, ids) = lowered_inserts(1);
+    let Hosted {
+        _host: host,
+        attached,
+        delivered,
+        midi,
+    } = host_plugin();
+    let node = attached.node;
+    let control = attached.control;
+    let fixture = ClockFixture {
+        _host: host,
+        delivered,
+        midi,
+    };
+    let mut driver = HeadlessDriver::new(engine_config());
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node,
+                dispatch: ParamDispatch::new(control, ids[0], frame_base()).unwrap(),
+                boundary: Some(spec()),
+            }],
+        )
+        .expect("activate");
+    (driver, fixture, ids)
+}
+
+/// SW-11 — clock epoch restart is a distinct hard discontinuity. A
+/// mixed param+MIDI plan staged in the old epoch is still pending when
+/// `device_restart` drains; upstream rejects those applies as
+/// `StaleGeneration`, and the driver projects the post-restart span as
+/// stopped/position-zero in epoch 1. Nothing is delivered, and no
+/// `Dispatched` stage is fabricated for the rejected plan.
+#[test]
+fn tim03_sw_11_driver_clock_restart_rejects_stale_pending_plan() {
+    let (mut driver, hosted, ids) = clock_restart_driver();
+
+    // Enter playing epoch 0; activation's anchor receipts are drained
+    // before the test stages its own old-epoch batch.
+    driver.run(1, PumpPolicy::Every(1)).expect("run epoch 0");
+    assert_eq!(driver.cursor(), 128);
+    assert_eq!(driver.attached_span(ids[0]).unwrap().start.epoch().get(), 0);
+
+    let target = ParameterTargetId::new(1);
+    let (pending_param_gen, pending_mixed_gen) = {
+        let (session, dispatch) = driver.attached_boundary(ids[0]).expect("session");
+        dispatch.bind(target, ParamId(7), &PARAMS).unwrap();
+        session
+            .dispatch_params(
+                dispatch,
+                &session.provenance(),
+                &writes_pair(160, 0.25, 224, 0.5),
+            )
+            .expect("stage old-epoch params");
+        let param_gen = dispatch
+            .last_plan_generation()
+            .expect("param plan generation");
+        dispatch
+            .dispatch_midi(&[(176, note_on(60))])
+            .expect("merge old-epoch MIDI");
+        (
+            param_gen,
+            dispatch
+                .last_plan_generation()
+                .expect("mixed plan generation"),
+        )
+    };
+    assert_ne!(pending_param_gen, pending_mixed_gen);
+
+    driver
+        .restart_attached_clock()
+        .expect("restart attached clock");
+    // The first post-restart block is exactly where the param/MIDI
+    // events would have fired without the epoch gate (160/176/224 all
+    // lie inside [128, 256)).
+    driver.run(1, PumpPolicy::Every(1)).expect("restart block");
+
+    assert!(
+        hosted.delivered.lock().unwrap().is_empty(),
+        "old-epoch param plan must have zero delivery"
+    );
+    assert!(
+        hosted.midi.lock().unwrap().is_empty(),
+        "old-epoch MIDI plan must have zero delivery"
+    );
+
+    let receipts = driver.attached_receipts(ids[0]).expect("receipts");
+    let stale_rejections = receipts
+        .iter()
+        .filter(|receipt| {
+            receipt.status == ApplyStatus::Rejected
+                && receipt.reason == Some(RejectReason::StaleGeneration)
+                && receipt.clock_epoch.get() == 1
+        })
+        .count();
+    assert!(
+        stale_rejections >= 2,
+        "both pending plan installs must be typed stale-epoch rejections, receipts={receipts:?}"
+    );
+    assert!(
+        receipts
+            .iter()
+            .all(|receipt| receipt.clock_epoch.get() <= 1),
+        "receipt epochs must stay on the observed epoch axis"
+    );
+
+    let span = driver.attached_span(ids[0]).expect("post-restart span");
+    assert_eq!(span.start.epoch().get(), 1);
+    assert_eq!(span.ctx.clock_epoch.get(), 1);
+    assert_eq!(span.ctx.status, TransportStatus::Stopped);
+    assert_eq!(span.ctx.position_ticks, 0);
+    assert_ne!(
+        span.ctx.plan_generation, pending_mixed_gen,
+        "the rejected plan generation is not reported live"
+    );
+    assert!(
+        !matches!(
+            driver
+                .attached_dispatch(ids[0])
+                .and_then(|dispatch| dispatch.stage(target)),
+            Some(DispatchStage::Dispatched { .. })
+        ),
+        "stale-epoch rejection must not be projected as Dispatched"
+    );
+}
+
+/// SW-12 — restart does not implicitly resume playback or silently
+/// carry an already-live plan across the epoch boundary. While stopped,
+/// an event whose position passes inside the restart block is not
+/// delivered. The explicit consumer policy is visible in order:
+/// replan the post-restart content, re-anchor/resume transport, then
+/// exactly the post-restart events deliver once with matching epoch and
+/// plan-generation evidence.
+#[test]
+fn tim03_sw_12_driver_clock_restart_requires_explicit_replan_resume() {
+    let (mut driver, hosted, ids) = clock_restart_driver();
+
+    let target = ParameterTargetId::new(1);
+    {
+        let (session, dispatch) = driver.attached_boundary(ids[0]).expect("session");
+        dispatch.bind(target, ParamId(7), &PARAMS).unwrap();
+        session
+            .dispatch_params(
+                dispatch,
+                &session.provenance(),
+                &writes_pair(160, 0.25, 320, 0.5),
+            )
+            .expect("stage epoch-0 plan");
+    }
+
+    // [128,256): the 160 event is valid epoch-0 delivery; the 320 event
+    // remains live but undelivered when the restart is staged at 256.
+    driver.run(2, PumpPolicy::Every(1)).expect("epoch-0 run");
+    assert_eq!(
+        *hosted.delivered.lock().unwrap(),
+        vec![Delivered {
+            abs_frame: 160,
+            param_id: 7,
+            value: 0.25,
+        }]
+    );
+    assert_eq!(driver.cursor(), 256);
+
+    driver
+        .restart_attached_clock()
+        .expect("restart attached clock");
+    // [256,384) covers the old plan's 320 event. Since restart stops
+    // transport and is not a resume operation, delivery stays zero.
+    driver
+        .run(1, PumpPolicy::Every(1))
+        .expect("stopped restart block");
+    assert_eq!(
+        hosted.delivered.lock().unwrap().len(),
+        1,
+        "the already-live old plan must not implicitly resume across restart"
+    );
+    let stopped = driver.attached_span(ids[0]).expect("stopped span");
+    assert_eq!(stopped.ctx.clock_epoch.get(), 1);
+    assert_eq!(stopped.ctx.status, TransportStatus::Stopped);
+    assert_eq!(stopped.ctx.position_ticks, 0);
+
+    // Explicit post-restart policy: replan the content, then re-anchor
+    // and resume at the driver cursor. The new generation is a consumer
+    // decision; the driver does not reinterpret restart as plan install.
+    let post_restart_gen = {
+        let (session, dispatch) = driver.attached_boundary(ids[0]).expect("session");
+        session
+            .dispatch_params(
+                dispatch,
+                &session.provenance(),
+                &writes_pair(416, 0.75, 448, 1.0),
+            )
+            .expect("stage post-restart params");
+        dispatch
+            .dispatch_midi(&[(420, note_on(64))])
+            .expect("merge post-restart MIDI");
+        dispatch
+            .last_plan_generation()
+            .expect("post-restart generation")
+    };
+    driver
+        .resume_attached_transport()
+        .expect("explicit re-anchor and resume");
+    driver
+        .run(1, PumpPolicy::Every(1))
+        .expect("post-restart run");
+
+    assert_eq!(
+        *hosted.delivered.lock().unwrap(),
+        restart_expected_delivered(),
+        "epoch-0 delivery is not duplicated; post-restart events deliver exactly once"
+    );
+    assert_eq!(
+        *hosted.midi.lock().unwrap(),
+        vec![DeliveredMidi {
+            abs_frame: 420,
+            key: 64,
+            on: true,
+        }]
+    );
+
+    let span = driver.attached_span(ids[0]).expect("resumed span");
+    assert_eq!(span.ctx.clock_epoch.get(), 1);
+    assert_eq!(span.ctx.status, TransportStatus::Playing);
+    assert_eq!(span.ctx.position_ticks, 384);
+    assert_eq!(span.ctx.plan_generation, post_restart_gen);
+    assert!(
+        matches!(
+            driver
+                .attached_dispatch(ids[0])
+                .and_then(|dispatch| dispatch.stage(target)),
+            Some(DispatchStage::Dispatched { .. })
+        ),
+        "the explicitly resumed post-restart plan is the only Dispatched projection"
+    );
 }
