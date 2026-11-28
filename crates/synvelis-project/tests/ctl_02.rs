@@ -393,6 +393,136 @@ fn failed_send_create_leaves_project_and_undo_untouched() {
 }
 
 #[test]
+fn failed_multi_edit_send_create_leaves_no_orphan_target() {
+    let mut c = controller();
+    let track = add_track(&mut c, "vox");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "verb");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let before = serde_json::to_value(c.live()).unwrap();
+    let revision_before = c.live_revision();
+    let history_before = c.history_states().count();
+    let targets_before = c.live().control.targets.len();
+
+    // 最初の edit は正常な send 作成、後続 edit は candidate 上に
+    // send-kind connection、`SendConfig`、`SendLevel` target ができた
+    // 後でだけ失敗する。したがって adoption validation ではなく commit
+    // atomicity を直接 pin する。
+    let it = intent(
+        &c,
+        vec![
+            RoutingEdit::CreateSend {
+                temp_id: TempSendId(1),
+                temp_connection: TempConnectionId(1),
+                source: strip_main(strip, PortDirection::Output),
+                destination: strip_main(ret_strip, PortDirection::Input),
+                tap: SendTap::PostFader,
+                level: SendGainSpec::Create {
+                    name: "to verb".into(),
+                    initial: 0.75,
+                },
+                channel_map: None,
+            },
+            RoutingEdit::RemoveSend {
+                send: SendRef::Existing(SendId::new(0xdead)),
+            },
+        ],
+    );
+    let result = apply_intent(&mut c, it);
+    assert!(result.is_err(), "the trailing unknown send must fail");
+
+    assert_eq!(serde_json::to_value(c.live()).unwrap(), before);
+    assert_eq!(c.live_revision(), revision_before, "no CAS committed");
+    assert_eq!(
+        c.history_states().count(),
+        history_before,
+        "no undo history entry committed"
+    );
+    assert_eq!(c.live().control.targets.len(), targets_before);
+    assert!(c.live().routing.sends.is_empty());
+    assert!(
+        !c.live()
+            .control
+            .targets
+            .values()
+            .any(|t| matches!(t.owner, ControlOwner::Send(_))),
+        "the candidate SendLevel target must not survive as an orphan"
+    );
+}
+
+#[test]
+fn strip_and_send_automation_lanes_keep_one_target_identity() {
+    let mut c = controller();
+    let track = add_track(&mut c, "vox");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "verb");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let send = create_send_to_return(&mut c, strip, ret_strip);
+    let fader = strip_channel_target_id(c.live(), strip, ParameterRole::Fader).unwrap();
+    let send_level = send_level_target_id(c.live(), send).unwrap();
+
+    let mut lanes = Vec::new();
+    for (target, value) in [(fader, 0.625), (send_level, 0.375)] {
+        c.apply(cmd(&c, ProjectOp::AddAutomationLane { target }))
+            .unwrap();
+        let lane = *c.live().control.lanes.keys().next_back().unwrap();
+        c.apply(cmd(
+            &c,
+            ProjectOp::WriteAutomationRegion {
+                lane,
+                region: AutomationRegion {
+                    range: BeatRange::try_new(
+                        BeatPoint::new(0, 1).unwrap(),
+                        BeatPoint::new(4, 1).unwrap(),
+                    )
+                    .unwrap(),
+                    interpolation: Interpolation::Step,
+                    points: vec![AutomationPoint {
+                        pos: BeatPoint::new(0, 1).unwrap(),
+                        value,
+                    }],
+                },
+                policy: ConflictPolicy::Reject,
+            },
+        ))
+        .unwrap();
+        lanes.push((target, lane, value));
+    }
+
+    for (target, lane, value) in &lanes {
+        assert_eq!(c.live().control.lanes[lane].target, *target);
+        assert_eq!(c.live().control.targets[target].capability, None);
+        let eval =
+            evaluate_control(c.live(), *target, BeatPoint::new(1, 1).unwrap(), None).unwrap();
+        assert_eq!(eval.reference_source, ReferenceSource::Automation);
+        assert_eq!(eval.host_normalized, *value);
+    }
+
+    let mut store = InMemoryStore::new();
+    c.save(&mut store).unwrap();
+    let mut reloaded = controller();
+    reloaded.load(&store).unwrap();
+    for (target, lane, value) in &lanes {
+        assert_eq!(reloaded.live().control.lanes[lane].target, *target);
+        assert_eq!(reloaded.live().control.targets[target].capability, None);
+        let eval = evaluate_control(
+            reloaded.live(),
+            *target,
+            BeatPoint::new(1, 1).unwrap(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(eval.reference_source, ReferenceSource::Automation);
+        assert_eq!(eval.host_normalized, *value);
+    }
+    assert_eq!(
+        reloaded.live().routing.sends[&send].gain_target,
+        Some(send_level),
+        "reload keeps the send gain reference on the same target"
+    );
+}
+
+#[test]
 fn low_level_add_send_keeps_unconfigured_option() {
     let mut c = controller();
     let track = add_track(&mut c, "vox");

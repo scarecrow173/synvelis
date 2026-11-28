@@ -36,6 +36,7 @@ use ruviform_ui::{
     BackendReport, CallOutcome, DataRegistry, OpInfo, Service, ServiceContext, UiRuntime,
 };
 
+use synvelis_app::ui_ops::UiOutbox;
 use synvelis_app::{AppService, OPS, SessionEngineConfig, SessionRoutingEngine, SynvelisApp};
 use synvelis_player::driver::PumpPolicy;
 use synvelis_player::fixture::write_fixture;
@@ -43,12 +44,16 @@ use synvelis_player::host::PluginHostProcessors;
 use synvelis_player::import::{ImportRequest, import_local};
 use synvelis_project::{
     AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange, BuildBudget,
-    BuildMode, ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, ConflictPolicy,
-    ControlOwner, Interpolation, LaneId, MediaDuration, MediaTimeValue, ParamMapping,
-    ParameterRole, ParameterTargetId, PlaybackMapping, PluginRef, ProcessorBinding, ProcessorId,
-    ProjectController, ProjectOp, ProjectRevision, RoutingActivationState, SourceFrame, SourceId,
-    SourceRange, StripId, TargetCapability, TimeAnchor, TrackId, ValueKind,
+    BuildMode, BusKind, ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, ConflictPolicy,
+    ControlOwner, ExplicitConversionPolicy, Interpolation, LaneId, MediaDuration, MediaTimeValue,
+    ParamMapping, ParameterRole, ParameterTargetId, PlaybackMapping, PluginRef, PortDirection,
+    PortRef, ProcessorBinding, ProcessorId, ProjectController, ProjectOp, ProjectRevision,
+    RoutingActivationState, RoutingEdit, RoutingEditIntent, SendGainSpec, SendId, SendTap,
+    SourceFrame, SourceId, SourceRange, StripId, StripRef, TargetCapability, TempConnectionId,
+    TempSendId, TimeAnchor, TrackId, ValueKind, port_capability_generation, send_level_target_id,
+    strip_channel_target_id,
 };
+use synvelis_workspace::AutomationMode;
 
 static TEST_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -413,6 +418,398 @@ impl PluginFactory for ReportFactory {
             pending: Vec::new(),
             announce: true,
         }))
+    }
+}
+
+// ---------------------------------------------------------------- CTL-02 endpoint fixture
+
+fn strip_main(strip: StripId, direction: PortDirection) -> PortRef {
+    PortRef::StripMain {
+        strip: StripRef::Existing(strip),
+        direction,
+    }
+}
+
+fn routing_intent(c: &ProjectController, edits: Vec<RoutingEdit>) -> RoutingEditIntent {
+    RoutingEditIntent {
+        operation_id: "ctl02-op".into(),
+        expected_port_capability_generation: port_capability_generation(c.live()),
+        edits,
+        approved_conversion: ExplicitConversionPolicy::None,
+    }
+}
+
+fn create_send(c: &mut ProjectController, source: StripId, destination: StripId) -> SendId {
+    apply(
+        c,
+        ProjectOp::Routing {
+            intent: routing_intent(
+                c,
+                vec![RoutingEdit::CreateSend {
+                    temp_id: TempSendId(1),
+                    temp_connection: TempConnectionId(1),
+                    source: strip_main(source, PortDirection::Output),
+                    destination: strip_main(destination, PortDirection::Input),
+                    tap: SendTap::PostFader,
+                    level: SendGainSpec::Create {
+                        name: "send level".into(),
+                        initial: 1.0,
+                    },
+                    channel_map: None,
+                }],
+            ),
+        },
+    );
+    *c.live().routing.sends.keys().next_back().unwrap()
+}
+
+struct ControlFixture {
+    svc: Rc<RefCell<AppService>>,
+    rt: UiRuntime,
+    outbox: UiOutbox,
+    strip: StripId,
+    fader: ParameterTargetId,
+    send: SendId,
+    send_level: ParameterTargetId,
+    pan: ParameterTargetId,
+    mute: ParameterTargetId,
+    solo: ParameterTargetId,
+}
+
+/// strip/send topology を production `ProjectOp` で構築した永続化
+/// project bundle fixture。automation mode の選択だけは session 直接
+/// setup とする。この slice には mode 選択 endpoint が存在しないが、
+/// 測定対象の gesture 自体はすべて `syn.control.subscribe` /
+/// `dispatch` を通す。
+fn control_fixture(root: &Path) -> ControlFixture {
+    let app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
+    let outbox = app.event_outbox();
+    let svc = Rc::new(RefCell::new(AppService::new(app)));
+    let mut rt = UiRuntime::new(DataRegistry::new());
+    rt.register_service(SharedService(Rc::clone(&svc)))
+        .expect("register AppService");
+    let bundle = root.join("bundle");
+    ok(
+        &mut rt,
+        "syn.project.new",
+        json!({ "path": bundle.to_string_lossy(), "name": "ctl02" }),
+    );
+
+    let (strip, fader, send, send_level, pan, mute, solo) = {
+        let mut svc = svc.borrow_mut();
+        let session = svc.app_mut().workspace_mut().session_mut();
+        let c = session.controller_mut();
+        let (_track, strip, _lane) = add_track_strip(c);
+        apply(
+            c,
+            ProjectOp::AddBus {
+                kind: BusKind::Return,
+                name: "verb".into(),
+            },
+        );
+        let bus = *c.live().routing.buses.keys().next_back().unwrap();
+        let ret_strip = c.live().routing.buses[&bus].strip;
+        let send = create_send(c, strip, ret_strip);
+        let fader = strip_channel_target_id(c.live(), strip, ParameterRole::Fader).unwrap();
+        let mute = strip_channel_target_id(c.live(), strip, ParameterRole::Mute).unwrap();
+        let solo = strip_channel_target_id(c.live(), strip, ParameterRole::Solo).unwrap();
+        apply(
+            c,
+            ProjectOp::AddParameterTarget {
+                name: "Pan".into(),
+                owner: ControlOwner::Strip(strip),
+                role: ParameterRole::Pan,
+                time_scope: AutomationTimeScope::ProjectMusical,
+                kind: ValueKind::Continuous,
+                mapping: ParamMapping::Linear,
+                capability: None,
+                base: 0.5,
+            },
+        );
+        let pan = strip_channel_target_id(c.live(), strip, ParameterRole::Pan).unwrap();
+        let send_level = send_level_target_id(c.live(), send).unwrap();
+        let project = c.live().clone();
+        for target in [fader, send_level] {
+            session
+                .control_mut()
+                .set_mode(&project, target, AutomationMode::Off)
+                .unwrap();
+        }
+        (strip, fader, send, send_level, pan, mute, solo)
+    };
+
+    ControlFixture {
+        svc,
+        rt,
+        outbox,
+        strip,
+        fader,
+        send,
+        send_level,
+        pan,
+        mute,
+        solo,
+    }
+}
+
+fn ctl_notifies(outbox: &UiOutbox, channel: &str) -> Vec<Value> {
+    let mut matched = Vec::new();
+    let mut rest = Vec::new();
+    {
+        let mut q = outbox.borrow_mut();
+        while let Some(e) = q.pop_front() {
+            match &e {
+                UiEvent::Notify { data, .. } if data["channel"] == channel => {
+                    matched.push(data["data"].clone());
+                }
+                _ => rest.push(e),
+            }
+        }
+        for e in rest.into_iter().rev() {
+            q.push_front(e);
+        }
+    }
+    matched
+}
+
+fn ctl_drain(outbox: &UiOutbox) {
+    outbox.borrow_mut().clear();
+}
+
+fn ctl_attach(rt: &mut UiRuntime, view: &str, window: &str) {
+    ok(
+        rt,
+        "syn.view.attach",
+        json!({ "view_id": view, "window_id": window }),
+    );
+}
+
+fn ctl_subscribe(rt: &mut UiRuntime, view: &str, target: ParameterTargetId) {
+    ok(
+        rt,
+        "syn.control.subscribe",
+        json!({ "view_id": view, "target": target.to_tagged() }),
+    );
+}
+
+fn ctl_dispatch(rt: &mut UiRuntime, view: &str, cmd: &str, intent: &Value, generation: u32) {
+    let ack = ok(
+        rt,
+        "syn.control.dispatch",
+        json!({
+            "intent": intent.clone(),
+            "ctx": {
+                "commandId": cmd,
+                "viewId": view,
+                "generation": u64::from(generation),
+                "issuedAt": 0u64,
+            },
+        }),
+    );
+    assert_eq!(ack["accepted"], true);
+}
+
+fn param_gesture(
+    kind: &str,
+    target: ParameterTargetId,
+    gesture: &str,
+    sequence: u64,
+    value: f64,
+) -> Value {
+    json!({
+        "kind": kind,
+        "target": target.to_tagged(),
+        "controlId": "ctl02-control",
+        "sequence": sequence,
+        "gestureId": gesture,
+        "originView": "mixer",
+        "value": { "plain": value, "normalized": value },
+    })
+}
+
+fn commit_param(
+    rt: &mut UiRuntime,
+    outbox: &UiOutbox,
+    target: ParameterTargetId,
+    gesture: &str,
+    value: f64,
+) {
+    for (kind, sequence) in [("begin", 1), ("preview", 2), ("commit", 3)] {
+        ctl_dispatch(
+            rt,
+            "mixer",
+            &format!("{gesture}-{kind}"),
+            &param_gesture(kind, target, gesture, sequence, value),
+            1,
+        );
+    }
+    let receipts = ctl_notifies(outbox, "syn.control.receipt");
+    let commit_id = format!("{gesture}-commit");
+    let commit = receipts
+        .iter()
+        .find(|r| r["receipt"]["commandId"] == commit_id)
+        .unwrap_or_else(|| panic!("missing commit receipt: {receipts:?}"));
+    assert_eq!(commit["receipt"]["status"], "applied");
+    assert_eq!(commit["receipt"]["detail"], "base edit");
+}
+
+fn target_base(fx: &ControlFixture, target: ParameterTargetId) -> f64 {
+    fx.svc
+        .borrow()
+        .app()
+        .workspace()
+        .session()
+        .project()
+        .control
+        .targets[&target]
+        .base
+}
+
+fn latest_projection(fx: &ControlFixture, target: ParameterTargetId) -> Value {
+    let rows = ctl_notifies(&fx.outbox, "syn.control.projection");
+    rows.iter()
+        .rfind(|row| row["target"] == target.to_tagged())
+        .unwrap_or_else(|| panic!("missing projection for {}: {rows:?}", target.to_tagged()))
+        .clone()
+}
+
+/// CTL-02 endpoint 統合: Fader と `SendLevel` を
+/// `syn.control.subscribe` + `syn.control.dispatch` gesture だけで
+/// 書き込み、同一 target id/value が projection/receipt、project
+/// Undo/Redo、Save/Reload を通って残ることを確認する。第二の永続化
+/// gain field は作らない。
+#[test]
+fn strip_and_send_endpoint_authority_survives_history_and_reload() {
+    let root = scratch("endpoint-authority");
+    let mut fx = control_fixture(&root);
+    ctl_attach(&mut fx.rt, "mixer", "win-1");
+    for target in [fx.fader, fx.send_level] {
+        ctl_subscribe(&mut fx.rt, "mixer", target);
+    }
+    // subscription 自体が projection 証拠である。gesture が値を変える
+    // 前に、両方の internal target が同じ row channel に入る。
+    let initial_rows = ctl_notifies(&fx.outbox, "syn.control.projection");
+    for target in [fx.fader, fx.send_level] {
+        assert!(
+            initial_rows
+                .iter()
+                .any(|row| row["target"] == target.to_tagged()),
+            "missing initial projection for {}",
+            target.to_tagged()
+        );
+    }
+    ctl_drain(&fx.outbox);
+
+    commit_param(&mut fx.rt, &fx.outbox, fx.fader, "g-fader", 0.625);
+    commit_param(&mut fx.rt, &fx.outbox, fx.send_level, "g-send", 0.375);
+    assert_eq!(target_base(&fx, fx.fader), 0.625);
+    assert_eq!(target_base(&fx, fx.send_level), 0.375);
+
+    assert_eq!(
+        ok(&mut fx.rt, "syn.project.undo", json!({}))["undone"],
+        true
+    );
+    assert_eq!(target_base(&fx, fx.send_level), 1.0);
+    assert_eq!(target_base(&fx, fx.fader), 0.625);
+    assert_eq!(
+        ok(&mut fx.rt, "syn.project.undo", json!({}))["undone"],
+        true
+    );
+    assert_eq!(target_base(&fx, fx.fader), 1.0);
+    assert_eq!(
+        ok(&mut fx.rt, "syn.project.redo", json!({}))["redone"],
+        true
+    );
+    assert_eq!(target_base(&fx, fx.fader), 0.625);
+    assert_eq!(
+        ok(&mut fx.rt, "syn.project.redo", json!({}))["redone"],
+        true
+    );
+    assert_eq!(target_base(&fx, fx.send_level), 0.375);
+
+    ok(&mut fx.rt, "syn.project.save", json!({}));
+    // reload は workspace を置き換える。先に reload 前 view を閉じ、
+    // reload 後の観測を stale UI cache の再利用ではなく unmount/remount
+    // 後の新しい binding に合わせる。
+    ok(&mut fx.rt, "syn.view.close", json!({ "view_id": "mixer" }));
+    ok(&mut fx.rt, "syn.project.reload", json!({}));
+    assert_eq!(target_base(&fx, fx.fader), 0.625);
+    assert_eq!(target_base(&fx, fx.send_level), 0.375);
+    {
+        let svc = fx.svc.borrow();
+        let project = svc.app().workspace().session().project();
+        assert_eq!(
+            project.routing.sends[&fx.send].gain_target,
+            Some(fx.send_level)
+        );
+        assert_eq!(project.control.targets[&fx.fader].capability, None);
+        assert_eq!(project.control.targets[&fx.send_level].capability, None);
+    }
+
+    ctl_attach(&mut fx.rt, "mixer-reload", "win-1");
+    ctl_subscribe(&mut fx.rt, "mixer-reload", fx.fader);
+    ctl_subscribe(&mut fx.rt, "mixer-reload", fx.send_level);
+    let rows = ctl_notifies(&fx.outbox, "syn.control.projection");
+    for (target, value) in [(fx.fader, 0.625), (fx.send_level, 0.375)] {
+        let row = rows
+            .iter()
+            .rev()
+            .find(|row| row["target"] == target.to_tagged())
+            .unwrap_or_else(|| panic!("missing initial row for {}: {rows:?}", target.to_tagged()));
+        assert_eq!(row["row"]["observed"]["value"]["normalized"], value);
+    }
+    let listed = ok(&mut fx.rt, "syn.control.targets", json!({}));
+    for target in [fx.fader, fx.send_level] {
+        assert!(
+            listed["targets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["target"] == target.to_tagged()),
+            "{} missing from control targets",
+            target.to_tagged()
+        );
+    }
+}
+
+/// CTL-02 endpoint authority 観測: 残りの strip role である
+/// Pan/Mute/Solo が project parameter target として解決され、同じ
+/// subscribe/projection endpoint 経路で永続化 base を公開することを
+/// 確認する。
+#[test]
+fn pan_mute_solo_endpoint_authority_observation() {
+    let root = scratch("endpoint-strip-roles");
+    let mut fx = control_fixture(&root);
+    ctl_attach(&mut fx.rt, "mixer", "win-1");
+    ctl_drain(&fx.outbox);
+    for (target, expected) in [(fx.pan, 0.5), (fx.mute, 0.0), (fx.solo, 0.0)] {
+        ctl_subscribe(&mut fx.rt, "mixer", target);
+        let row = latest_projection(&fx, target);
+        assert_eq!(row["row"]["kind"], "param");
+        assert_eq!(row["row"]["observed"]["value"]["normalized"], expected);
+        assert_eq!(row["row"]["observed"]["value"]["read_only"], false);
+    }
+    {
+        let svc = fx.svc.borrow();
+        let project = svc.app().workspace().session().project();
+        for target in [fx.pan, fx.mute, fx.solo] {
+            assert_eq!(
+                project.control.targets[&target].owner,
+                ControlOwner::Strip(fx.strip)
+            );
+        }
+    }
+    let listed = ok(&mut fx.rt, "syn.control.targets", json!({}));
+    for target in [fx.pan, fx.mute, fx.solo] {
+        assert!(
+            listed["targets"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["target"] == target.to_tagged() && row["kind"] == "param"),
+            "{} missing from control targets",
+            target.to_tagged()
+        );
     }
 }
 
