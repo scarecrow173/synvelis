@@ -178,6 +178,10 @@ struct AttachedDispatch {
     last_window_plan: Option<ProcessBoundaryPlan>,
     /// The span context last projected for this node.
     last_span: Option<TransportSpan>,
+    /// Scheduler receipts drained while projecting the latest block —
+    /// retained as typed evidence for stale-epoch rejection, generation
+    /// mismatch and apply status instead of collapsing them into a boolean.
+    last_receipts: Vec<AppliedReceipt>,
 }
 
 /// Driver-side mirror of the node scheduler's transport state.
@@ -228,6 +232,13 @@ pub(crate) struct TransportMirror {
     /// Loop occurrence at `anchor_frame`; wraps between the anchor
     /// and a queried frame are folded by [`Self::position_at`].
     occurrence: LoopOccurrence,
+    /// Clock epoch the node scheduler is projected to live in. Unlike
+    /// frame base this changes only through an explicit device restart;
+    /// unlike transport/plan generations it is not bumped by transport
+    /// commands or plan installs. The value is command-predicted after
+    /// a successful restart push and receipt-corrected whenever the
+    /// node reports scheduler state.
+    clock_epoch: ClockEpochId,
     /// Transport generation confirmed by the node's own receipts —
     /// the last drained [`AppliedReceipt`]'s value, or the
     /// scheduler's initial `TransportGeneration::new(0)` before the
@@ -255,9 +266,15 @@ impl TransportMirror {
             anchor_pos: 0,
             loop_ticks: None,
             occurrence: LoopOccurrence::new(0),
+            clock_epoch: ClockEpochId::new(0),
             transport_generation: TransportGeneration::new(0),
             pending_generation: None,
         }
+    }
+
+    /// The clock epoch the next span context reports.
+    pub(crate) const fn clock_epoch(&self) -> ClockEpochId {
+        self.clock_epoch
     }
 
     /// The transport generation the next span context reports:
@@ -339,9 +356,25 @@ impl TransportMirror {
     /// in the drain is always the freshest known value.
     pub(crate) fn note_receipts(&mut self, receipts: &[AppliedReceipt]) {
         if let Some(last) = receipts.last() {
+            self.clock_epoch = last.clock_epoch;
             self.transport_generation = last.transport_generation;
             self.pending_generation = None;
         }
+    }
+
+    /// Explicit device restart at `base_frame`: the scheduler bumps the
+    /// clock epoch, rejects every pending apply as stale, stops transport
+    /// and re-anchors position zero without treating the discontinuity as
+    /// a seek or plan install. The loop region is preserved because
+    /// upstream `device_restart` does not clear it. Command-predicted
+    /// transport-generation bumps from the rejected pre-restart batch are
+    /// discarded; the receipt-confirmed generation itself is not bumped
+    /// by a restart.
+    pub(crate) fn note_device_restart(&mut self, base_frame: u64) {
+        self.clock_epoch = ClockEpochId::new(self.clock_epoch.get() + 1);
+        self.status = TransportStatus::Stopped;
+        self.anchor_at(base_frame, 0, LoopOccurrence::new(0));
+        self.pending_generation = None;
     }
 
     /// Re-anchors `(anchor_frame, anchor_pos, occurrence)` — the
@@ -592,10 +625,6 @@ pub struct HeadlessDriver {
     /// Latest per-target observation merged across attached nodes —
     /// refreshed per block inside [`HeadlessDriver::run`].
     param_observations: BTreeMap<ParameterTargetId, ParamValueObservation>,
-    /// Clock epoch of the driver's frame series — the scheduler
-    /// epoch attached nodes start in. `device_restart` is never sent,
-    /// so this stays the node's live epoch.
-    epoch: ClockEpochId,
 }
 
 impl HeadlessDriver {
@@ -628,7 +657,6 @@ impl HeadlessDriver {
             attached: Vec::new(),
             next_instance: 1,
             param_observations: BTreeMap::new(),
-            epoch: ClockEpochId::new(0),
         }
     }
 
@@ -835,9 +863,11 @@ impl HeadlessDriver {
             staged_transport: Vec::new(),
             last_window_plan: None,
             last_span: None,
+            last_receipts: Vec::new(),
         };
+        let epoch = attached.transport.clock_epoch();
         attached
-            .anchor_link(self.epoch, self.cursor, self.window_frames())
+            .anchor_link(epoch, self.cursor, self.window_frames())
             .map_err(ActivateError::BoundarySession)?;
         Ok(attached)
     }
@@ -977,16 +1007,16 @@ impl HeadlessDriver {
     /// prediction while staged bumps await applies;
     /// `plan_generation` from the dispatch's staged plan — the same
     /// value the projection gate checks), `clock_epoch` is the
-    /// driver's owned epoch and `tempo_revision` is `0` by
+    /// node mirror's restart-aware epoch and `tempo_revision` is `0` by
     /// construction (no plan this driver installs carries a tempo
     /// map). `position == engine frame` remains the driver's
     /// invariant; the mirror makes the *wrapped* position and loop
     /// metadata honest where a `SetLoop` is active.
     fn observe_attached_block(&mut self) {
-        let call_start = EngineFrame::new(self.epoch, self.cursor);
         let block = self.engine.block_frames;
         let call_frames = u32::try_from(block).unwrap_or(u32::MAX);
         for attached in &mut self.attached {
+            let call_start = EngineFrame::new(attached.transport.clock_epoch(), self.cursor);
             // Advance the scheduler-faithful wrap sim through the
             // window the node just ran. `sim_window` is the node's
             // own cursor head — `due = 0` commands staged since the
@@ -1004,13 +1034,13 @@ impl HeadlessDriver {
                 .walk_window(attached.sim_window, call_frames, &pending);
             attached.sim_window = attached.sim_window.saturating_add(block as u64);
             attached.staged_transport.clear();
-            let span = TransportSpan {
+            let mut span = TransportSpan {
                 start: call_start,
                 end: call_start.advance(block as u64),
                 ctx: attached.transport.span_context(
                     self.cursor,
                     attached.dispatch.frame_base(),
-                    self.epoch,
+                    attached.transport.clock_epoch(),
                     attached
                         .dispatch
                         .last_plan_generation()
@@ -1018,12 +1048,27 @@ impl HeadlessDriver {
                 ),
                 deliverable: true,
             };
-            let cycle = attached
+            let crate::dispatch::DispatchCycle {
+                observations,
+                receipts,
+            } = attached
                 .dispatch
                 .observe_cycle(&span, call_start, call_frames);
-            attached.transport.note_receipts(&cycle.receipts);
+            attached.transport.note_receipts(&receipts);
+            // Projection inside `observe_cycle` uses the staged generation
+            // because same-head installs apply before events in the block;
+            // its own receipt gate suppresses `Dispatched` when the install
+            // did not become live. The stored span is post-block evidence,
+            // so correct its generation/epoch axes to the receipts just
+            // drained rather than preserving that necessary prediction.
+            span.ctx.clock_epoch = attached.transport.clock_epoch();
+            span.ctx.transport_generation = attached.transport.effective_generation();
+            if let Some(live_plan) = attached.dispatch.scheduler_plan_generation() {
+                span.ctx.plan_generation = live_plan;
+            }
+            attached.last_receipts = receipts;
             attached.last_span = Some(span);
-            for (target, obs) in cycle.observations {
+            for (target, obs) in observations {
                 self.param_observations.insert(target, obs);
             }
         }
@@ -1094,7 +1139,8 @@ impl HeadlessDriver {
             // first in the drain order, so the `Seek`'s due frame is
             // already the new cursor; `Seek` keeps position == frame
             // even if a prior `Play` had anchored elsewhere.
-            Self::stage_seek(attached, self.epoch, engine_frame, window)?;
+            let epoch = attached.transport.clock_epoch();
+            Self::stage_seek(attached, epoch, engine_frame, window)?;
         }
         Ok(())
     }
@@ -1241,11 +1287,58 @@ impl HeadlessDriver {
     /// queue drop on a boundary-declared node; undeclared nodes keep
     /// the lenient best-effort queueing.
     pub fn resume_attached_transport(&mut self) -> Result<(), BoundarySessionError> {
-        let epoch = self.epoch;
         let cursor = self.cursor;
         let window = self.window_frames();
         for attached in &mut self.attached {
+            let epoch = attached.transport.clock_epoch();
             attached.anchor_link(epoch, cursor, window)?;
+        }
+        Ok(())
+    }
+
+    /// Restarts every attached plugin-node clock epoch at the driver's
+    /// current cursor. This is an explicit hard discontinuity, distinct
+    /// from a seek, transport-generation bump, plan install, or frame-base
+    /// check: upstream `device_restart` increments the node scheduler's
+    /// epoch, rejects every still-pending control/plan apply as
+    /// `StaleGeneration`, stops transport, and re-anchors position zero at
+    /// `base_frame = cursor`. Frame numbers continue monotonically inside
+    /// the new epoch, so the driver's `position == engine frame` invariant
+    /// survives the restart.
+    ///
+    /// Restart itself never resumes playback. Consumers must explicitly
+    /// re-anchor/resume through [`Self::resume_attached_transport`] or
+    /// [`Self::seek`]; until then `TransportStatus::Stopped` suppresses
+    /// plan, param and MIDI delivery. An already installed plan is not
+    /// reinterpreted as a new plan generation — replanning remains an
+    /// explicit consumer action through the dispatch/session seam.
+    ///
+    /// The driver's transport mirror drops command-predicted generation
+    /// state for the rejected pre-restart batch and tracks the new epoch
+    /// per node. This fan-out shares the bounded-queue partial-application
+    /// contract of the other transport methods: earlier nodes may have
+    /// restarted when a later node returns [`BoundarySessionError::QueueFull`].
+    ///
+    /// # Errors
+    /// [`BoundarySessionError::QueueFull`] when a node's bounded control
+    /// queue drops the restart control.
+    pub fn restart_attached_clock(&mut self) -> Result<(), BoundarySessionError> {
+        let base_frame = self.cursor;
+        for attached in &mut self.attached {
+            attached
+                .dispatch
+                .control()
+                .device_restart(base_frame)
+                .map_err(|_| BoundarySessionError::QueueFull)?;
+            attached.transport.note_device_restart(base_frame);
+            attached.wrap_sim.device_restart(base_frame);
+            attached.sim_window = base_frame;
+            // Every transport command staged before the restart is ahead
+            // of it in the bounded FIFO and is rejected as stale when the
+            // restart drains. Post-restart commands require later explicit
+            // consumer calls.
+            attached.staged_transport.clear();
+            attached.last_window_plan = None;
         }
         Ok(())
     }
@@ -1287,6 +1380,18 @@ impl HeadlessDriver {
             .iter()
             .find(|d| d.dispatch.node() == node_id)
             .and_then(|d| d.last_span.as_ref())
+    }
+
+    /// Scheduler receipts drained while projecting the attached node's
+    /// latest block. These are diagnostic evidence of the node's typed
+    /// apply/reject outcomes; the slice is empty before the first observed
+    /// block or when the node emitted no receipts.
+    #[must_use]
+    pub fn attached_receipts(&self, node_id: NodeId) -> Option<&[AppliedReceipt]> {
+        self.attached
+            .iter()
+            .find(|d| d.dispatch.node() == node_id)
+            .map(|d| d.last_receipts.as_slice())
     }
 
     /// The [`ProcessBoundaryPlan`] the attached node at `node_id`

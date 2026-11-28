@@ -1,0 +1,25 @@
+command	os	exit	classification	log
+mise run fmt-check	windows-x86_64	1	InfrastructureFailure	os error 206 before rustfmt; see fmt-check.log
+mise exec -- cargo fmt -p synvelis-player -- --check	windows-x86_64	0	AuxiliaryPass	fmt-package.log
+mise run check synvelis-player	windows-x86_64	0	Pass	check-synvelis-player.log
+mise run lint synvelis-player	windows-x86_64	0	Pass	lint-synvelis-player.log
+mise run test synvelis-player	windows-x86_64	0	Pass	test-synvelis-player.log
+mise run test-rt	windows-x86_64	0	Pass after auxiliary runner build; initial missing-artifact exit 101 isolated	test-rt.log
+mise run check-headless-deps	windows-x86_64	0	Pass	check-headless-deps.log
+cargo build --locked -p synvelis-plugin-test-l1-runner	windows-x86_64	0	AuxiliarySetupPass	build-l1-runner-aux.log
+branch-ci initial-attempt verify (windows-latest): mise run test-full	windows-latest	101	OutOfScopeFlakeFailure superseded by successful same-SHA rerun; sv646 import replay polling timeout	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140918885428
+branch-ci initial-attempt rt-verify: mise run test-rt	ubuntu-latest	101	OutOfScopeFlakeFailure superseded by successful same-SHA rerun; sv643 jobs ledger pending-commit timing	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140918885525
+branch-ci dep-guard	ubuntu-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924729794
+branch-ci gw10-verify (ubuntu-latest)	ubuntu-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924709708
+branch-ci gw10-verify (windows-latest)	windows-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924709509
+branch-ci gw10-verify-macos	macos-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924708999
+branch-ci ui-verify (ubuntu-latest)	ubuntu-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924733080
+branch-ci ui-verify (windows-latest)	windows-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924745362
+branch-ci ui-verify-macos	macos-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924748139
+branch-ci verify (ubuntu-latest): mise run test-full	ubuntu-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1; tim03_sw_11/tim03_sw_12 ok	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924740878
+branch-ci verify (windows-latest): mise run test-full	windows-latest	0	Pass after failed-job rerun target 6187ce12907652f5c61980c80813fa8e76573bf1; tim03_sw_11/tim03_sw_12 ok	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924708422
+branch-ci verify-macos: mise run test-full	macos-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924746516
+branch-ci rt-verify: mise run test-rt	ubuntu-latest	0	Pass after failed-job rerun target 6187ce12907652f5c61980c80813fa8e76573bf1; rt_process_boundary_hot_path_alloc_free ok	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924708132
+branch-ci msrv-verify: mise run test-msrv	ubuntu-latest	0	Pass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140924709648
+branch-ci evidence: mise run ci-summary-gate	ubuntu-latest	0	DecisivePass target 6187ce12907652f5c61980c80813fa8e76573bf1	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140932183033
+branch-ci ci-summary: mise run ci-summary-gate	ubuntu-latest	0	DecisivePass target 6187ce12907652f5c61980c80813fa8e76573bf1; verify-sha three-way match	https://github.com/scarecrow173/synvelis/actions/runs/46125438476/job/140932239574
