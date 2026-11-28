@@ -43,8 +43,22 @@ const LOOP_START_FRAME: i64 = 385;
 const LOOP_END_FRAME: i64 = 641;
 const SEEK_FRAME: i64 = 513;
 const AUTOMATION_FRAME: i64 = 545;
-const AUTOMATION_VALUE: f64 = 0.375;
-const AUTOMATION_PLAIN_GAIN: f32 = 0.75;
+
+#[derive(Clone, Copy)]
+struct AutomationCase {
+    normalized: f32,
+    expected_gain: f32,
+}
+
+// Independent from the host conversion: test_gain's plain range is 0..=2.
+const BELOW_UNITY: AutomationCase = AutomationCase {
+    normalized: 0.375,
+    expected_gain: 0.75,
+};
+const ABOVE_UNITY: AutomationCase = AutomationCase {
+    normalized: 0.625,
+    expected_gain: 1.25,
+};
 
 fn beat(num: i64, den: u32) -> BeatPoint {
     BeatPoint::new(num, den).unwrap()
@@ -69,6 +83,7 @@ fn automation_beat() -> BeatPoint {
 fn add_transport_target(
     controller: &mut synvelis_project::ProjectController,
     processor: ProcessorId,
+    normalized: f64,
 ) -> ParameterTargetId {
     apply(
         controller,
@@ -120,7 +135,7 @@ fn add_transport_target(
                     },
                     AutomationPoint {
                         pos: automation_beat(),
-                        value: AUTOMATION_VALUE,
+                        value: normalized,
                     },
                     AutomationPoint {
                         pos: beat(1, 1),
@@ -138,6 +153,7 @@ fn build_transport_project(
     app: &mut SynvelisApp,
     root: &std::path::Path,
     descriptor: &str,
+    normalized: f64,
 ) -> (ProcessorId, LaneId, ParameterTargetId, SourceId) {
     let controller = app.workspace_mut().session_mut().controller_mut();
     apply(
@@ -149,7 +165,7 @@ fn build_transport_project(
     );
     let (_, strip, lane) = add_track_strip(controller);
     let processor = insert_gain_processor(controller, strip, descriptor);
-    let target = add_transport_target(controller, processor);
+    let target = add_transport_target(controller, processor, normalized);
     let imported = import_constant_stereo(controller, root);
     let source = imported.commit.source_id;
     add_clip(controller, lane, source, 0, FIRST_CLIP_END, 0);
@@ -301,6 +317,7 @@ struct ControlPcmEvidence {
     automation_blocks: Vec<usize>,
     unity_blocks: Vec<usize>,
     wrong_quarter_gain_blocks: Vec<usize>,
+    normalized_as_plain_blocks: Vec<usize>,
     silence_blocks: Vec<usize>,
     transition_blocks: Vec<usize>,
 }
@@ -424,17 +441,18 @@ fn exercise_transport_application(
 fn collect_control_pcm_evidence(
     engine: &synvelis_app::SessionRoutingEngine,
     target: ParameterTargetId,
-    cycles: &mut Vec<synvelis_player::DispatchCycle>,
+    run: &mut TransportRunEvidence,
     activation_report: synvelis_player::driver::PlayReport,
-    first: &TransportApplicationReport,
     first_run: synvelis_player::driver::PlayReport,
     second_run: synvelis_player::driver::PlayReport,
+    case: AutomationCase,
 ) -> ControlPcmEvidence {
     let late_run = run_paced(engine, 8);
-    cycles.extend(engine.control_drain_observations());
-    let (call_start, frame_offset, position) = find_dispatched(cycles, target, AUTOMATION_VALUE);
+    run.cycles.extend(engine.control_drain_observations());
+    let (call_start, frame_offset, position) =
+        find_dispatched(&run.cycles, target, f64::from(case.normalized));
     assert_eq!(position, AUTOMATION_FRAME);
-    let transport_anchor = i64::try_from(first.call_start.frame()).unwrap() - SEEK_FRAME;
+    let transport_anchor = i64::try_from(run.first.call_start.frame()).unwrap() - SEEK_FRAME;
     let expected_physical_frame = AUTOMATION_FRAME + transport_anchor;
     assert_eq!(transport_anchor, -1);
     assert_eq!(frame_offset, block_offset(expected_physical_frame));
@@ -452,10 +470,11 @@ fn collect_control_pcm_evidence(
     assert_eq!(pcm_report.frames, BLOCK_FRAMES as u64 * 12);
     let mut pcm_classes = Vec::new();
     classify_blocks(0, &pcm_report.pcm[0], &pcm_report.pcm[1], &mut pcm_classes);
-    let automation_blocks = pcm_gain_blocks(&pcm_report, AUTOMATION_PLAIN_GAIN);
+    let automation_blocks = pcm_gain_blocks(&pcm_report, case.expected_gain);
     assert!(
         automation_blocks.contains(&4) && automation_blocks.iter().any(|block| *block >= 5),
-        "PCM oracle did not observe fresh post-transition automation-gain blocks (gain {AUTOMATION_PLAIN_GAIN}): {pcm_classes:?}"
+        "PCM oracle did not observe fresh post-transition automation-gain blocks (gain {}): {pcm_classes:?}",
+        case.expected_gain
     );
     let unity_blocks = pcm_gain_blocks(&pcm_report, 1.0);
     let wrong_quarter_gain_blocks = pcm_gain_blocks(&pcm_report, 0.25);
@@ -464,6 +483,15 @@ fn collect_control_pcm_evidence(
         Vec::<usize>::new(),
         "normalized automation value leaked as a plain gain"
     );
+    let normalized_as_plain_blocks = pcm_gain_blocks(&pcm_report, case.normalized);
+    assert!(
+        normalized_as_plain_blocks.is_empty(),
+        "normalized automation keyframe leaked as a plain gain: {normalized_as_plain_blocks:?}"
+    );
+    let automation_class = json!(format!("input*{}", case.expected_gain));
+    for &block in &automation_blocks {
+        pcm_classes[block]["class"] = automation_class.clone();
+    }
     let silence_blocks = class_blocks(&pcm_classes, "silence");
     let transition_blocks = class_blocks(&pcm_classes, "other");
     ControlPcmEvidence {
@@ -476,6 +504,7 @@ fn collect_control_pcm_evidence(
         automation_blocks,
         unity_blocks,
         wrong_quarter_gain_blocks,
+        normalized_as_plain_blocks,
         silence_blocks,
         transition_blocks,
     }
@@ -557,14 +586,18 @@ fn transport_reports_json(run: &TransportRunEvidence) -> Value {
     })
 }
 
-fn control_oracle_json(run: &TransportRunEvidence, control: &ControlPcmEvidence) -> Value {
+fn control_oracle_json(
+    run: &TransportRunEvidence,
+    control: &ControlPcmEvidence,
+    case: AutomationCase,
+) -> Value {
     let automation_tick = run
         .first
         .automation
         .as_ref()
         .expect("automation tick evidence");
     json!({
-        "automation_value": AUTOMATION_VALUE,
+        "automation_value": case.normalized,
         "position_frame": control.position,
         "transport_anchor": control.transport_anchor,
         "expected_physical_frame": control.expected_physical_frame,
@@ -594,21 +627,23 @@ fn span_oracle_json(span: &TransportSpan) -> Value {
     })
 }
 
-fn pcm_oracle_json(control: &ControlPcmEvidence) -> Value {
+fn pcm_oracle_json(control: &ControlPcmEvidence, case: AutomationCase) -> Value {
     json!({
         "input": {"left": INPUT, "right": -INPUT},
-        "automation_normalized": AUTOMATION_VALUE,
-        "automation_plain_gain": AUTOMATION_PLAIN_GAIN,
+        "automation_normalized": case.normalized,
+        "automation_plain_gain": case.expected_gain,
+        "expected_pcm": {"left": INPUT * case.expected_gain, "right": -INPUT * case.expected_gain},
         "automation_gain_blocks": control.automation_blocks.clone(),
         "matched_blocks": control.automation_blocks.clone(),
         "silence_blocks": control.silence_blocks.clone(),
         "unity_blocks": control.unity_blocks.clone(),
         "transition_or_mixed_blocks": control.transition_blocks.clone(),
-        "substituted_pass_through_distinction": "not separately observable through the production PCM surface; silence/unity/transition blocks are classified as non-fresh for automation delivery and never counted as matched input*0.75 delivery",
+        "substituted_pass_through_distinction": "not separately observable through the production PCM surface",
         "block_classes": control.pcm_classes.clone(),
-        "normalized_as_plain_blocks": control.wrong_quarter_gain_blocks.clone(),
+        "wrong_quarter_gain_blocks": control.wrong_quarter_gain_blocks.clone(),
+        "normalized_as_plain_blocks": control.normalized_as_plain_blocks.clone(),
         "lookahead_blocks": 2,
-        "freshness_rule": "silence/lookahead/pass-through unity blocks are not counted as automation delivery; only input*0.75 blocks count",
+        "freshness_rule": "only full stereo blocks matching input times the expected plain gain count; silence, lookahead, unity, and transition blocks do not count",
     })
 }
 
@@ -629,6 +664,7 @@ fn print_transport_application_evidence(
     run: &TransportRunEvidence,
     control: &ControlPcmEvidence,
     negative_json: &Value,
+    case: AutomationCase,
 ) {
     println!(
         "tim03-l1-transport-application {}",
@@ -657,9 +693,9 @@ fn print_transport_application_evidence(
                 "frame_base": "1/48000",
             },
             "transport_application": transport_reports_json(run),
-            "control_oracle": control_oracle_json(run, control),
+            "control_oracle": control_oracle_json(run, control, case),
             "span_oracle": span_oracle_json(&run.span),
-            "pcm_oracle": pcm_oracle_json(control),
+            "pcm_oracle": pcm_oracle_json(control, case),
             "negative_evidence": negative_json,
             "not_run": [
                 "test_instrument plugin-side musical transport oracle (test_gain ignores TransportInfo)",
@@ -674,7 +710,12 @@ fn print_transport_application_evidence(
     );
 }
 
-fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
+fn exercise_format(
+    probe: &FixtureProbe,
+    runner_env: &str,
+    runner_stem: &str,
+    case: AutomationCase,
+) {
     assert!(probe.path.is_file());
     let runner = runner_program(runner_env, runner_stem);
     let runner_path = PathBuf::from(&runner);
@@ -689,7 +730,8 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
         "gpui",
         "tim03-l1-transport-application".to_owned(),
     ));
-    let (processor, lane, target, source) = build_transport_project(&mut app, &root, probe.gain.id);
+    let (processor, lane, target, source) =
+        build_transport_project(&mut app, &root, probe.gain.id, f64::from(case.normalized));
     let engine = compose_routing_engine_with_out_of_process_and_boundaries(
         &mut app,
         session_config(root.join("media")),
@@ -724,11 +766,11 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
     let control = collect_control_pcm_evidence(
         &engine,
         target,
-        &mut evidence.cycles,
+        &mut evidence,
         activation_report,
-        &evidence.first,
         first_run,
         second_run,
+        case,
     );
     let negative_json =
         inactive_generation_evidence(&mut app, &engine, processor, lane, source, generation);
@@ -748,17 +790,30 @@ fn exercise_format(probe: &FixtureProbe, runner_env: &str, runner_stem: &str) {
         &evidence,
         &control,
         &negative_json,
+        case,
     );
 }
 
 #[test]
 fn tim03_l1_vst3_transport_application() {
     let (probe, _library) = load_vst3();
-    exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM);
+    exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM, BELOW_UNITY);
 }
 
 #[test]
 fn tim03_l1_clap_transport_application() {
     let (probe, _library) = load_clap();
-    exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM);
+    exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM, BELOW_UNITY);
+}
+
+#[test]
+fn tim03_l1_vst3_transport_application_above_unity() {
+    let (probe, _library) = load_vst3();
+    exercise_format(&probe, VST3_RUNNER_ENV, VST3_RUNNER_STEM, ABOVE_UNITY);
+}
+
+#[test]
+fn tim03_l1_clap_transport_application_above_unity() {
+    let (probe, _library) = load_clap();
+    exercise_format(&probe, CLAP_RUNNER_ENV, CLAP_RUNNER_STEM, ABOVE_UNITY);
 }
