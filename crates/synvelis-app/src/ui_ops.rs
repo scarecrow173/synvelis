@@ -21,7 +21,10 @@ use ruviform_media_core::{
     TempoMapRevision, TimeBase, TransportGeneration, TransportSpan, TransportStatus,
 };
 use ruviform_plugin_core::{ParamValue, ParamWriteMeans};
-use ruviform_plugin_host::{AttachMode, EditorSessionState, EditorSize, PluginEditorSessions};
+use ruviform_plugin_host::{
+    AttachMode, EditorOpError, EditorSessionError, EditorSessionEvent, EditorSessionState,
+    EditorSize, PluginEditorSessions,
+};
 use ruviform_ui::dock::{
     DockEvent, DockTarget, MoveToken, ViewInstanceId, WindowCloseDisposition, WindowGeometry,
 };
@@ -931,24 +934,68 @@ fn plugin_dock_geometry(params: &Value, size: EditorSize) -> SlotGeometry {
 /// A panel's read model as the `syn.plugin_dock.state` payload.
 pub(crate) fn plugin_dock_status_json(dock: &PluginDock, sessions: &PluginEditorSessions) -> Value {
     let s = dock.status(sessions);
+    let restored = dock
+        .restored_logical()
+        .and_then(|snapshot| serde_json::to_value(snapshot).ok());
+    let logical = restored.as_ref();
+    let session_state = s
+        .session_state
+        .as_ref()
+        .map(session_state_name)
+        .map_or_else(
+            || logical.map_or(Value::Null, |_| Value::from("closed")),
+            Value::from,
+        );
     json!({
         "view_id": format!("view-{}", s.view.get()),
         "window_id": s.window.map(|w| w.to_string()),
         "slot": s.slot.map(slot_id_str),
         "slot_state": s.slot_state.map(|st| format!("{st:?}")),
-        "instance": s.instance.map(StablePluginInstanceId::get),
+        "instance": s
+            .instance
+            .map(|instance| json!(instance.get()))
+            .or_else(|| logical.and_then(|v| v.get("instance")).cloned()),
         "session": s.session.map(session_id_str),
-        "session_state": s.session_state.as_ref().map(session_state_name),
+        "session_state": session_state,
         "mode": s
             .session_state
             .as_ref()
             .and_then(session_state_mode)
             .map(attach_mode_name),
-        "placement": s.placement.map(PluginDockPlacement::as_str),
+        "placement": s
+            .placement
+            .map(|placement| json!(placement.as_str()))
+            .or_else(|| logical.and_then(|v| v.get("placement")).cloned()),
         "visible": s
             .session_state
             .is_some_and(|st| matches!(st, EditorSessionState::Attached { .. })),
-        "size": s.size.map(|size| json!({ "width": size.width, "height": size.height })),
+        "size": s.size.map(|size| json!({ "width": size.width, "height": size.height })).or_else(|| logical.and_then(|v| v.get("size")).cloned()),
+        "restored": restored,
+    })
+}
+
+/// One drained editor-session event as notify evidence — the event
+/// vocabulary stays verbatim (`degraded` is never rewritten as an
+/// attach pass) while ids/causes remain runtime evidence rather than
+/// persisted state.
+fn plugin_dock_session_event_json(event: EditorSessionEvent) -> Value {
+    let (name, mode, cause) = match event {
+        EditorSessionEvent::Attached { mode } => ("attached", Some(mode), None),
+        EditorSessionEvent::Hidden => ("hidden", None, None),
+        EditorSessionEvent::Shown { mode } => ("shown", Some(mode), None),
+        EditorSessionEvent::Detached => ("detached", None, None),
+        EditorSessionEvent::Reattached { mode } => ("reattached", Some(mode), None),
+        EditorSessionEvent::Recovered { mode } => ("recovered", Some(mode), None),
+        EditorSessionEvent::Degraded { mode } => ("degraded", Some(mode), None),
+        EditorSessionEvent::Failed { cause } => ("failed", None, Some(cause)),
+        EditorSessionEvent::Closed => ("closed", None, None),
+        EditorSessionEvent::Terminated { cause } => ("terminated", None, Some(cause)),
+        _ => ("unknown", None, None),
+    };
+    json!({
+        "event": name,
+        "mode": mode.map(attach_mode_name),
+        "cause": cause.map(|c| format!("{c:?}")),
     })
 }
 
@@ -2568,6 +2615,111 @@ impl SynvelisApp {
         });
     }
 
+    /// The honest termination cause after a boundary close failure. A
+    /// session that already landed `Failed` keeps that cause verbatim;
+    /// otherwise the adapter error is mapped with the same terminal-cause
+    /// vocabulary the upstream session state machine uses.
+    fn plugin_dock_close_failure_cause(
+        dock: &PluginDock,
+        sessions: &PluginEditorSessions,
+        error: &PluginDockError,
+    ) -> ruviform_plugin_host::SessionFailCause {
+        use ruviform_plugin_host::SessionFailCause;
+
+        if let Some(EditorSessionState::Failed { cause }) = dock.session_state(sessions) {
+            return cause;
+        }
+        let op = match error {
+            PluginDockError::Session(EditorSessionError::Ops(op)) | PluginDockError::Ops(op) => *op,
+            _ => return SessionFailCause::Internal,
+        };
+        match op {
+            EditorOpError::Unsupported => SessionFailCause::Unsupported,
+            EditorOpError::LeaseRejected => SessionFailCause::LeaseInvalid,
+            EditorOpError::Timeout => SessionFailCause::Timeout,
+            EditorOpError::HostLost => SessionFailCause::HostLost,
+            EditorOpError::GraphicsLost => SessionFailCause::GraphicsLost,
+            EditorOpError::Plugin => SessionFailCause::PluginFailed,
+            EditorOpError::Io => SessionFailCause::Transport,
+            _ => SessionFailCause::Internal,
+        }
+    }
+
+    /// Converges every plugin dock at a project boundary. A live
+    /// session first gets the graceful-close opportunity; any adapter
+    /// refusal is then converged as a termination and force-retired so
+    /// session/lease/slot state cannot leak into the next project.
+    /// Project operations continue after this infallible teardown —
+    /// leaking old-project editor resources into the new session is
+    /// worse than reporting the boundary teardown through the honest
+    /// terminal session state while it is still observable.
+    pub(crate) fn converge_plugin_docks_for_project_boundary(&mut self) {
+        let views: Vec<ViewInstanceId> = self.ui.plugin_docks.keys().copied().collect();
+        for view in views {
+            let close_error = {
+                let Some(dock) = self.ui.plugin_docks.get_mut(&view) else {
+                    continue;
+                };
+                let host = self.ui.plugin_editor_host.as_deref_mut();
+                dock.close(&mut self.ui.plugin_sessions, host).err()
+            };
+            if let Some(error) = close_error
+                && let Some(dock) = self.ui.plugin_docks.get_mut(&view)
+            {
+                let cause =
+                    Self::plugin_dock_close_failure_cause(dock, &self.ui.plugin_sessions, &error);
+                dock.notify_instance_terminated(&mut self.ui.plugin_sessions, cause);
+                let _ = dock.close(&mut self.ui.plugin_sessions, None);
+            }
+            if let Some(dock) = self.ui.plugin_docks.get_mut(&view) {
+                dock.notify_window_lost(&mut self.ui.plugin_sessions);
+            }
+        }
+        self.ui.plugin_docks.clear();
+        // Session ids and generations are process-runtime identities.
+        // A project boundary mints a fresh registry so no stale
+        // generation or instance binding can be observed afterwards.
+        self.ui.plugin_sessions = PluginEditorSessions::new();
+    }
+
+    /// Pumps plugin editor sessions at the app-owned non-RT boundary:
+    /// deadline evaluation runs once for the shared registry, then each
+    /// panel drains its own event queue exactly once and publishes the
+    /// state projection those events produced. Panel ops already call
+    /// `ui_pump`; the shell's tick lifecycle op reaches the same seam
+    /// when no op is in flight.
+    fn pump_plugin_dock_sessions(&mut self) {
+        self.ui.plugin_sessions.tick_all();
+        let mut drained = Vec::new();
+        {
+            let sessions = &mut self.ui.plugin_sessions;
+            for (inst, dock) in &mut self.ui.plugin_docks {
+                let events = dock.drain_session_events(sessions);
+                if !events.is_empty() {
+                    drained.push((*inst, events));
+                }
+            }
+        }
+        for (inst, events) in drained {
+            let Some(dock) = self.ui.plugin_docks.get(&inst) else {
+                continue;
+            };
+            let panel = plugin_dock_status_json(dock, &self.ui.plugin_sessions);
+            let events: Vec<Value> = events
+                .into_iter()
+                .map(plugin_dock_session_event_json)
+                .collect();
+            self.push_notify(
+                "syn.plugin_dock.state",
+                json!({
+                    "view_id": format!("view-{}", inst.get()),
+                    "events": events,
+                    "panel": panel,
+                }),
+            );
+        }
+    }
+
     /// Pumps both UI gateways, drains receipts/events into the outbox,
     /// and pushes bound subscription rows + changed meter/spectrum
     /// frames. Called by every UI op at its tail — the outbox always
@@ -2612,6 +2764,7 @@ impl SynvelisApp {
         self.drain_control_reports();
         let _ = self.drain_control_observations();
         self.drain_probe();
+        self.pump_plugin_dock_sessions();
     }
 
     /// PC-C4-04 control-cadence drive — one
@@ -4676,10 +4829,14 @@ impl SynvelisApp {
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or workspace failures.
     pub fn op_window_lifecycle(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let event = str_param(params, "event")?;
+        if event == "tick" {
+            self.ui_pump();
+            return Ok(json!({ "event": "tick", "pumped": true }));
+        }
         let window = str_param(params, "window_id")?;
         let id = parse_window_id(window)
             .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
-        let event = str_param(params, "event")?;
         let result = match event {
             "created" | "ready" => {
                 if !self.workspace.windows().iter().any(|w| w.id == id) {

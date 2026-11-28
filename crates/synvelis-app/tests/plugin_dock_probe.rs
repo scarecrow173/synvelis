@@ -41,15 +41,16 @@ use ruviform_plugin_host::{
     InProcessHost, LeaseRedeemer, PluginEditorSessions, SessionFailCause,
 };
 use ruviform_plugin_vst3::host::Vst3Library;
-use ruviform_ui::WindowId;
 use ruviform_ui::dock::ViewInstanceId;
+use ruviform_ui::ipc::Event;
 use ruviform_ui::native_slot::{
     LeaseInfo, LogicalRect, NativeSurfaceSlot, SlotCapabilities, SlotError, SlotEvent,
     SlotGeometry, SlotLease, SlotSpec, SlotState, SlotVisibility, SurfaceSlotId,
 };
+use ruviform_ui::{BackendReport, WindowId};
 use ruviform_ui_test::{FakeNativeSlot, ScenarioReport, ScenarioVerdict};
 use synvelis_app::plugin_dock::{NativeSlotAuthority, SharedNativeSlotAuthority};
-use synvelis_app::{PluginDock, PluginDockError, PluginEditorHost};
+use synvelis_app::{PluginDock, PluginDockError, PluginEditorHost, SynvelisApp};
 use synvelis_player::StablePluginInstanceId;
 
 /// Canonical lane artifact — set to a file path to have the `run_all`
@@ -208,6 +209,42 @@ impl PluginEditorHost for RealAbiEditorHost {
             redeem,
         )))
     }
+}
+
+impl Drop for RealAbiEditorHost {
+    fn drop(&mut self) {
+        // Product-app probe legs move this host into `SynvelisApp`;
+        // dropping the app still owns the honest non-RT teardown of
+        // every real ABI instance it activated. Explicit teardown in
+        // the older legs makes these calls defined no-ops/errors.
+        for handle in self.handles.values().copied() {
+            let _ = self.host.execute(HostCommand::Deactivate { handle });
+            let _ = self.host.execute(HostCommand::Destroy { handle });
+        }
+    }
+}
+
+/// Selectively drains `syn.plugin_dock.state` notify payloads from an
+/// app outbox, leaving unrelated events queued.
+fn drain_app_plugin_dock_notifies(app: &SynvelisApp) -> Vec<serde_json::Value> {
+    let outbox = app.event_outbox();
+    let mut matched = Vec::new();
+    let mut rest = Vec::new();
+    {
+        let mut q = outbox.borrow_mut();
+        while let Some(event) = q.pop_front() {
+            match &event {
+                Event::Notify { data, .. } if data["channel"] == "syn.plugin_dock.state" => {
+                    matched.push(data["data"].clone());
+                }
+                _ => rest.push(event),
+            }
+        }
+        for event in rest.into_iter().rev() {
+            q.push_front(event);
+        }
+    }
+    matched
 }
 
 /// Scan → Instantiate → Initialize → Activate(48 kHz, 1..=512) — the
@@ -917,4 +954,81 @@ fn clap_artifact_and_host_lifecycle_probe() {
     host.host
         .execute(HostCommand::Destroy { handle })
         .expect("destroy");
+}
+
+/// Product-app pump leg over the real VST3 ABI: `test_gain` refuses
+/// docked open with `Unsupported`, the refusal stays queued until the
+/// authoritative `ui_pump` seam drains it, and the notify/read-model
+/// projection reports the failure exactly once. This is headless ABI
+/// evidence only — the synthetic parent token is not an OS parent.
+#[test]
+fn product_app_pump_projects_vst3_test_gain_refusal_once() {
+    let Some(library) = load_vst3() else {
+        record_leg(
+            "product-app-pump-test-gain-open",
+            "synvelis-app+in-process-host/vst3",
+            "notrun",
+            "VST3 fixture artifact unresolved",
+            &serde_json::json!({}),
+        );
+        return;
+    };
+    let gain_id =
+        descriptor_id(library.descriptors(), "test_gain").expect("test_gain descriptor present");
+
+    let mut host = RealAbiEditorHost::new();
+    host.register_factories(library.factories());
+    let handle = activate(&mut host.host, gain_id).expect("activate test_gain on the real ABI");
+    host.register_instance(handle);
+
+    let mut app = SynvelisApp::new(BackendReport::available("gpui", "probe-0.1".to_string()));
+    app.set_plugin_editor_host(Box::new(host));
+    app.set_native_slot_authority(test_authority());
+    app.op_window_lifecycle(&serde_json::json!({
+        "window_id": "w1",
+        "event": "created",
+        "title": "Synvelis probe",
+    }))
+    .expect("adopt probe window");
+
+    let err = app
+        .op_plugin_dock_open(&serde_json::json!({
+            "view_id": "view-21",
+            "window_id": "w1",
+            "instance": INSTANCE,
+        }))
+        .expect_err("test_gain ships no editor");
+    assert_eq!(err.code.as_str(), "unavailable");
+
+    app.op_window_lifecycle(&serde_json::json!({ "event": "tick" }))
+        .expect("first authoritative pump");
+    let state = app.plugin_dock_state("view-21").expect("panel read model");
+    assert_eq!(state["session_state"], "failed");
+    app.op_window_lifecycle(&serde_json::json!({ "event": "tick" }))
+        .expect("second authoritative pump");
+
+    let failed: Vec<_> = drain_app_plugin_dock_notifies(&app)
+        .iter()
+        .filter(|row| row["view_id"] == "view-21")
+        .flat_map(|row| row["events"].as_array().into_iter().flatten())
+        .filter(|event| event["event"] == "failed")
+        .cloned()
+        .collect();
+    assert_eq!(
+        failed.len(),
+        1,
+        "the real refusal is projected exactly once"
+    );
+    assert_eq!(failed[0]["cause"], "Unsupported");
+
+    record_leg(
+        "product-app-pump-test-gain-open",
+        "synvelis-app+in-process-host/vst3",
+        "unsupported",
+        "real ABI test_gain open refused Unsupported; authoritative ui_pump projected Failed exactly once",
+        &serde_json::json!({
+            "error": format!("{err:?}"),
+            "failed_events": failed,
+        }),
+    );
 }
