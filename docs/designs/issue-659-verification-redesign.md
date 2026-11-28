@@ -2,7 +2,7 @@
 id: "DESIGN-sv659VerificationRedesign01"
 type: "design"
 status: "draft"
-title: "Issue #659 Journal・Authorization 形式的検証再設計 — slice1-3 ledger/matrix"
+title: "Issue #659 Journal・Authorization 形式的検証再設計 — slice1-4 ledger/matrix"
 created: "2026-11-26"
 updated: "2026-11-26"
 owners: ["scarecrow173"]
@@ -47,7 +47,7 @@ relations:
 
 本書は `scarecrow173/synvelis#659` の slice 1 として、Issue #601 で導入された Journal・Authorization 検証を Property 起点で棚卸し、後続 slice が実装する representative proof・runner 分類・mutation 設計の基盤を定め、slice 2 の selective proof 結果と slice 3 の selective proof cost/mutation matrix を同期したものである。上位の規範は `POLICIES.md` §6.1〜§6.6 と `evidence/rf1014/verification.md` であり、本書はそこから派生する製品固有の検証設計である。
 
-slice 1 は設計と inventory に限定し、製品コード、proof harness、Property Test、`tools/run-formal-kani.mjs`、mise lane、CI/workflow を変更しなかった。slice 2 は selective runner interface と `K-RJ-03`/`K-RJ-04` の実走結果だけを同期し、slice 3 は低コスト proof 3 件の cost と 5 件の mutation matrix を同期した。いずれの slice も製品コード、proof harness、Property Test、bound、assume、unwind、mise lane、CI/workflow を恒久的には変更しない。`docs/specs/formal-verification.md` の最終的な Verification Specification 再構成と証跡/手順分離は `scarecrow173/synvelis#662` が担うため、本書はその構成を先取りせず、Issue #601 当時の spec と slice 1/2/3 で確定した設計判断を分けて記録する。
+slice 1 は設計と inventory に限定し、製品コード、proof harness、Property Test、`tools/run-formal-kani.mjs`、mise lane、CI/workflow を変更しなかった。slice 2 は selective runner interface と `K-RJ-03`/`K-RJ-04` の実走結果だけを同期し、slice 3 は低コスト proof 3 件の cost と 5 件の mutation matrix を同期した。slice 4 は K-RJ-04 に限定し、proptest-only test code を Kani codegen から外す test-only boundary と、illegal-transition error text の有限 static lookup への再設計を行った。bound、assume、unwind、状態数、acceptance gate、mise lane、CI/workflow は変更していない。`docs/specs/formal-verification.md` の最終的な Verification Specification 再構成と証跡/手順分離は `scarecrow173/synvelis#662` が担うため、本書はその構成を先取りせず、Issue #601 当時の spec と slice 1/2/3 で確定した設計判断を分けて記録する。
 
 ## 2. 入力正本と inventory の作り方
 
@@ -183,7 +183,7 @@ matrix で使う領域 ID を先に定義する。
 | K-RJ-01 `replay_journal_contract_bounded` | ≤44byte任意streamでRJ-P01相当の分類契約 | solver起動後OOM/VM crash・NotRun。cost不明 | Required・致命・Bounded Exhaustive(未完了) | 製品recording replay | K-STREAM44。44<48でChunk symbolic allocation経路を構造除外。長大stream/cap/FSは未証明 | 最優先代表proof。選択実行と資源分類で再測定 |
 | K-RJ-02 `encode_replay_roundtrip_bounded` | Checkpoint/Finalizeの全field symbolic・seq0 roundtrip | solver起動後OOM/VM crash・NotRun。cost不明 | Required・高・Bounded Exhaustive(未完了) | 製品recording encode/replay | K-FIXED-KINDS。Chunk/Vec<JournalSpan>/可変長は未証明 | 代表proof。Chunkは別harnessまたはPTとして分離 |
 | K-RJ-03 `crc32_split_equivalence_bounded` | 固定16byte・任意split≤16でincremental=one-shot | Pass・0/131 failed (1 unreachable)・slice3 Verification Time 234.04366s・runner wall-clock 288.605s・sync `34e69fb27774f41f6aded1a24320be90ffd7477a`（slice2: 282.0517s/310.115s） | Required・高・Bounded Exhaustive | 製品crc32/Crc32 | K-CRC16。16byte超・多数分割・任意長数学証明は未証明 | pass は K-CRC16 の内側だけの保証として記録。変更時は選択実行で再検証する |
-| K-RJ-04 `session_transitions_exhaustive` | 4×4遷移とacceptance gatesを全網羅 | NotRun・solver が 300s 予算内に完了せず外部停止・runner wall-clock 634.49s・sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5` | Required・高・Bounded Exhaustive(有限全域・未完了) | 製品session SM | K-SESSION4。上位操作列/crash/recoveryは未証明 | solver cost の原因調査と harness 分割可否を次 slice で判断する。bound/weakening はしない |
+| K-RJ-04 `session_transitions_exhaustive` | 4×4遷移とacceptance gatesを全網羅 | Pass・0/269 failed (4 unreachable)・Verification Time 5.1956944s・runner wall-clock 30.248s・sync `dbddb52f20d8a98e9f5a9d6e1a6571307cfb7659` | Required・高・Bounded Exhaustive(有限全域) | 製品session SM | K-SESSION4。上位操作列/crash/recoveryは未証明 | slice4 で完走。pass は有限全域の内側だけの保証として記録し、上位workflow/recoveryへ転用しない |
 
 ## 6. Journal Codec・CRC32・Session Transition の保証設計
 
@@ -215,6 +215,12 @@ slice 2 の selective proof 実走（sync `24d2e2a25291d4e8ec75c7f1ea41bad049421
 slice 3 の selective proof 実走（sync `34e69fb27774f41f6aded1a24320be90ffd7477a`）では、低コストの 3 件がいずれも 300s の verification budget 内で Pass した。K-GJ-02 は Verification Time 33.076668s・runner wall-clock 104.125s、K-GJ-03 は 24.030256s・67.862s、K-RJ-03 は 234.04366s・288.605s である。runner wall-clock は compile/loading を含むため Verification Time と混ぜない。実行順は K-GJ-02、K-GJ-03、K-RJ-03 であり、cache 状態と環境差が残るため、historical baseline との差分から性能因果は断定しない。
 
 これらの Pass の接続条件は限定的である。K-GJ-02 は固定 12 byte・seq0・単 record の GJ-P03 を補強するが、可変長、複数 record、full stream を証明しない。K-GJ-03 は固定 8 byte・単 record の任意非零 seq gap を示すが、複数 record 欠番や上位 resume を証明しない。K-RJ-03 は固定 16 byte・split ≤16 の RJ-P10 を示し、任意長、3 以上分割、暗号学的耐性を証明しない。上位 Journal/Recovery/製品全体契約を導くには、GJ-P05/RJ-P05 の stream roundtrip、resume/recovery ordering、Chunk/cap 境界、FS durability などの接続条件が残る。
+
+slice 4 の selective proof 再設計（sync `dbddb52f20d8a98e9f5a9d6e1a6571307cfb7659`）では、K-RJ-04 が `VERIFICATION:- SUCCESSFUL`・0/269 failed（4 unreachable）・Verification Time 5.1956944s で Pass した。runner wall-clock は 30.248s、shell wall-clock は 32s であり、compile/loading を含むため Verification Time と区別する。selective invocation は `proofs::session_transitions_exhaustive` 1 件だけに解決された。
+
+切り分けでは、まず proptest-only test code を `cfg(not(kani))` で Kani codegen 対象から外した。この boundary だけの GOTO symbol map では proptest の entry が 0 件だったが、proof は solver が 300s を超えても完了せず、runner elapsed 336.099s・exit 15 の NotRun だった。したがって proptest-only test code は compile/codegen 側の無関係境界であり、支配的な solver cost ではなかったと判定する。同じ map には `fmt` 738 entry、`format` 39 entry、`alloc` 1109 entry が残っていた。
+
+次に `require_transition` の externally visible error text を変えず、illegal pair の message を 16 pair の finite static lookup から構成する形へ変更した。再設計後の GOTO symbol map は total 1603 entry、`fmt` 42 entry、`format` 0 entry、`alloc` 618 entry になり、proof は 5.1956944s で完走した。この対応から、支配要因は `format!` 経由の illegal-transition error construction が solver 入力へ入ることだったと記録する。proptest-only test code の除外は solver 支配因ではないが、無関係な test-only code を proof boundary から外す維持可能な整理として残す。memory は未計測であり、OOM killer や VM crash は今回観測していない。
 
 ### 6.3 保証制約の引き継ぎ
 
@@ -332,8 +338,8 @@ Ruviform へ還元すべきものは、製品固有 Property ではなく、複�
 
 ## 11. 次 slice への引き継ぎ
 
-- `K-RJ-04` の solver cost 原因調査と分割可否、`K-RJ-01`/`K-RJ-02`/`K-GJ-01` の実走、既存 pass 2 件を含む回帰、harnessごとの peak memory 計測と full cause classifier。
+- `K-RJ-01`/`K-RJ-02`/`K-GJ-01` の実走、既存 pass 3 件を含む回帰、harnessごとの peak memory 計測と full cause classifier。
 - Authorization pure core の抽出可否を判断し、Wire scan・存在秘匿・descriptor・budget・grant次元・scope/effectsの代表BEを設計どおり実装するかを決める。
 - Recovery ordering model の atomic action/仮定を確定し、TLA+ 等の tool-fit と最小modelを作る。
 - mutation は slice3 で CRC除去、seq検査除去、wire forbidden token削除、deny先攻順序、budget消費条件の 5 件を実施し、いずれも killed として記録した。検出能力の詳細は mutation ledger と cost matrix を正本とする。
-- slice 2 は selective interface、`K-RJ-03` の bounded pass、`K-RJ-04` の solver NotRun までを確定した。slice 3 は低コスト proof 3 件の再実行と 5 件の mutation matrix を確定したが、重い replay/round-trip proof、Authorization pure core、Recovery ordering、full cause classifier、peak memory 計測、全件 cost comparison、Sync Commit 整備は未実装または未実走であり、証明済みとして扱わない。
+- slice 2 は selective interface、`K-RJ-03` の bounded pass、`K-RJ-04` の solver NotRun までを確定した。slice 3 は低コスト proof 3 件の再実行と 5 件の mutation matrix を確定した。slice 4 は K-RJ-04 の boundary 再設計と bounded pass を確定したが、重い replay/round-trip proof、Authorization pure core、Recovery ordering、full cause classifier、peak memory 計測、全件 cost comparison、Sync Commit 整備は未実装または未実走であり、証明済みとして扱わない。

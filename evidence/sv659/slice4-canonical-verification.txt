@@ -1,0 +1,576 @@
+---
+$ mise run check synvelis-recording
+start_utc=2026-11-28T13:01:12Z
+[check] $ cargo check --locked --all-targets -p synvelis-recording
+    Checking cfg-if v1.0.5
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+    Checking ruviform-media-core v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling quote v1.0.47
+    Checking windows-link v0.2.1
+   Compiling rustversion v1.0.23
+   Compiling zerocopy v0.8.63
+   Compiling windows_x86_64_msvc v0.34.0
+   Compiling version_check v0.9.5
+    Checking rtrb v0.4.1
+   Compiling serde_core v1.0.229
+    Checking rand_core v0.10.1
+   Compiling zmij v1.0.23
+   Compiling getrandom v0.4.3
+    Checking fearless_simd v1.2.0
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-media-core\src\lib.rs
+   Compiling autocfg v1.5.1
+    Checking getrandom v0.2.17
+    Checking windows-sys v0.61.2
+    Checking typenum v1.20.1
+    Checking rand_core v0.6.4
+    Checking log v0.4.35
+   Compiling num-traits v0.2.19
+   Compiling serde_json v1.0.154
+   Compiling generic-array v0.14.7
+   Compiling serde v1.0.229
+    Checking itoa v1.0.18
+    Checking ruviform-io-file v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking audio_thread_priority v0.38.0
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-media-core\src\lib.rs
+    Checking memchr v2.8.3
+    Checking ruviform-audio-core v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-video-core v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking once_cell v1.21.4
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+    Checking fastrand v2.5.0
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-core\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-video-core\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-core\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-video-core\src\lib.rs
+    Checking ruviform-graph v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-plugin-core v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-media-io v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking wait-timeout v0.2.1
+    Checking quick-error v1.2.3
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-graph\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-core\src\lib.rs
+    Checking cpufeatures v0.3.1
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-graph\src\lib.rs
+    Checking cpufeatures v0.2.17
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-core\src\lib.rs
+    Checking fnv v1.0.7
+    Checking bit-vec v0.10.2
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-media-io\src\lib.rs
+    Checking rand_xorshift v0.5.0
+    Checking core_detect v1.0.0
+    Checking arc-swap v1.9.3
+    Checking bitflags v2.13.2
+    Checking ppv-lite86 v0.2.21
+    Checking windows v0.34.0
+    Checking tempfile v3.27.0
+    Checking chacha20 v0.10.2
+    Checking rand v0.10.3
+    Checking unarray v0.1.4
+    Checking bit-set v0.11.1
+    Checking regex-syntax v0.8.11
+    Checking stats_alloc v0.1.10
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+   Compiling syn v3.0.9
+    Checking rand_chacha v0.3.1
+    Checking ruviform-rt v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-media-io\src\lib.rs
+    Checking win-sys v0.3.1
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-rt\src\lib.rs
+    Checking rusty-fork v0.3.1
+    Checking rand v0.8.8
+    Checking digest v0.10.7
+    Checking proptest v1.12.0
+   Compiling fearless_simd_macros v0.1.0
+   Compiling serde_derive v1.0.229
+    Checking shared_memory v0.12.4
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-rt\src\lib.rs
+    Checking ruviform-observability v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-exec v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking sha2 v0.10.9
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+    Checking ruviform-math v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv659-session-proof-boundary\crates\synvelis-project)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+    Checking ruviform-dsp v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+    Checking ruviform-audio-analysis v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+    Checking ruviform-plugin-host v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+    Checking ruviform-audio v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[progress]: 15s elapsed; 86 hits, 0 misses, 0 bypassed, 0 not looked up; ~1m 21s compiler work saved
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+    Checking ruviform-audio-plugin-bridge v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+    Checking ruviform-audio-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv659-session-proof-boundary\crates\synvelis-recording)
+mbx[progress]: 30s elapsed; 86 hits, 12 misses, 0 bypassed, 0 not looked up; ~1m 21s compiler work saved
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.06s
+mbx[cache]: 86 hits, 25 misses; 0 B downloaded, 0 B uploaded, 9.7 MiB stored locally
+mbx[savings]: 11.4 TiB logical of target/ was waiting for checkouts that are never coming back. it has stopped waiting.
+end_utc=2026-11-28T13:01:47Z
+exit_code=0
+shell_elapsed_seconds=35
+---
+$ mise run lint synvelis-recording
+start_utc=2026-11-28T13:01:48Z
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv659-session-proof-boundary\crates\synvelis-project)
+mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv659-session-proof-boundary\crates\synvelis-recording)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.40s
+mbx[cache]: 0 hits, 25 misses; 0 B downloaded, 0 B uploaded, 9.8 MiB stored locally
+mbx[savings]: 19.3 TiB logical of build debris has left the building.
+end_utc=2026-11-28T13:02:12Z
+exit_code=0
+shell_elapsed_seconds=23
+---
+$ mise run test synvelis-recording
+start_utc=2026-11-28T13:02:12Z
+[test] $ cargo test --locked -p synvelis-recording
+   Compiling synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv659-session-proof-boundary\crates\synvelis-recording)
+mbx[progress]: 15s elapsed; 0 hits, 1 misses, 0 bypassed, 21 not looked up; ~0s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.57s
+     Running unittests src\lib.rs (target\debug\deps\synvelis_recording-87404be5c708037b.exe)
+
+running 23 tests
+test bounded::tests::advance_consumes_without_move ... ok
+test crc32::tests::fold_is_deterministic ... ok
+test bounded::tests::push_advances_and_caps ... ok
+test crc32::tests::incremental_matches_oneshot ... ok
+test input::tests::missing_position_and_stamp_faults ... ok
+test input::tests::position_wins_over_stamp ... ok
+test input::tests::stamp_accumulated_drift_faults ... ok
+test crc32::tests::known_vectors ... ok
+test input::tests::stamp_delta_gap_faults ... ok
+test input::tests::stamp_jitter_is_absorbed_not_placed ... ok
+test input::tests::stamp_rejections_map_to_faults ... ok
+test input::tests::stamp_regression_faults ... ok
+test input::tests::stamp_seeds_then_places_cumulative_frames ... ok
+test journal::tests::bad_checksum_detected ... ok
+test journal::tests::bad_magic_detected ... ok
+test journal::tests::empty_is_clean ... ok
+test journal::tests::roundtrip_all_kinds ... ok
+test faultinj::tests::fail_write_injects_storage_full ... ok
+test journal::tests::seq_gap_detected ... ok
+test journal::tests::torn_tail_detected ... ok
+test faultinj::tests::short_write_lands_partial_then_fails ... ok
+test faultinj::tests::byte_limit_tears_tail ... ok
+test faultinj::tests::fail_sync_injected ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\device_recording.rs (target\debug\deps\device_recording-8ba8d9fe82a0cfbf.exe)
+
+running 17 tests
+test fake_arm_off_monitor_on_creates_no_writer_and_no_media ... ok
+test fake_punch_boundaries_are_sample_exact ... ok
+test fake_sample_rate_change_fails_stop ... ok
+test fake_rt_queue_full_fails_stop ... ok
+test fake_clock_epoch_change_fails_stop ... ok
+test fake_filled_queue_full_fails_stop ... ok
+test fake_device_disconnect_fails_stop ... ok
+test fake_input_drop_fails_stop_and_preserves_verified_prefix ... ok
+test fake_stereo_records_verified_pcm_through_real_writer ... ok
+test fake_mono_records_verified_pcm_through_real_writer ... ok
+test fake_multichannel_records_verified_pcm_through_real_writer ... ok
+test fake_loop_gate_records_each_pass ... ok
+test fake_capture_stamp_fallback_records_verified_pcm ... ok
+test fake_monitor_on_does_not_alter_raw_pcm ... ok
+test fake_punch_in_loop_pass_boundaries_are_sample_exact ... ok
+test fake_two_track_one_stream_binds_channels_to_separate_streams ... ok
+test fake_two_devices_same_clock_record_to_separate_streams ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\formal_journal.rs (target\debug\deps\formal_journal-75beeda7be70e265.exe)
+
+running 15 tests
+test session_acceptance_gates_are_total ... ok
+test session_transition_agrees_with_require ... ok
+test digest_fold_chain_is_deterministic ... ok
+test encode_record_layout ... ok
+test encode_record_seq0_replays ... ok
+test encode_record_nonzero_seq_is_gap ... ok
+test chunk_record_over_cap_refused ... ok
+test crc32_incremental_matches_oneshot ... ok
+test resumed_appender_frames_gap_as_fresh_stream ... ok
+test trailing_garbage_stops_at_boundary ... ok
+test truncation_is_torn_tail_or_boundary_clean ... ok
+test single_byte_corruption_never_verifies_past_it ... ok
+test replay_journal_arbitrary_bytes_contract ... ok
+test appender_stream_roundtrip_and_seq_discipline ... ok
+test chunk_record_at_cap_boundary ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\input_adapter.rs (target\debug\deps\input_adapter-d8265d381cd6e590.exe)
+
+running 26 tests
+test binding_validation_rejects_bad_specs ... ok
+test capture_stamp_regression_faults ... ok
+test device_open_error_is_mapped ... ok
+test filled_queue_full_faults_through_adapter ... ok
+test capture_stamp_before_anchor_faults ... ok
+test foreign_capture_base_faults ... ok
+test channel_count_change_faults ... ok
+test mismatched_clock_domain_is_rejected ... ok
+test clock_domain_change_mid_stream_faults ... ok
+test arm_off_monitor_on_creates_no_writer_and_captures_nothing ... ok
+test enumerator_and_input_stream_lifecycle ... ok
+test mismatched_clock_epoch_is_rejected ... ok
+test missing_position_and_stamp_faults ... ok
+test device_error_callbacks_map_to_faults ... ok
+test input_frame_gap_faults_and_preserves_verified_prefix ... ok
+test oversized_block_faults ... ok
+test frame_position_wins_over_capture_stamp ... ok
+test sample_rate_change_is_detected_by_verify_format ... ok
+test unknown_clock_domain_is_rejected ... ok
+test capture_stamp_jitter_still_records_verified_pcm ... ok
+test work_queue_full_faults ... ok
+test capture_stamp_fallback_records_verified_pcm ... ok
+test monitor_on_does_not_change_capture ... ok
+test same_clock_domain_two_streams_capture_together ... ok
+test two_track_one_stream_binds_channels_to_separate_tracks ... ok
+test mono_stereo_multichannel_pcm_fidelity ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\input_adapter_rt_alloc.rs (target\debug\deps\input_adapter_rt_alloc-4dad278b0697faa4.exe)
+
+running 1 test
+test rt_callback_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\monitor_gate.rs (target\debug\deps\monitor_gate-f382d3b4c474f8ab.exe)
+
+running 20 tests
+test decide_auto_routes_input_when_stopped_or_gate_open ... ok
+test decide_on_requires_verified_io_and_ignores_arm_gate ... ok
+test decide_auto_without_arm_never_routes_input ... ok
+test decide_off_suppresses_playback_only_while_gate_open ... ok
+test hardware_direct_notices_are_external_facts ... ok
+test mute_solo_only_affect_playback_route ... ok
+test monitor_probe_punch_in_loop_repeats_gate_open_per_pass ... ok
+test monitor_probe_splits_punch_at_block_interior_boundaries ... ok
+test monitor_probe_off_mutes_gate_open_playback ... ok
+test monitor_probe_punch_in_loop_block_interior_boundaries ... ok
+test monitor_probe_stopped_auto_is_input_even_with_gate_closed ... ok
+test monitor_probe_loop_gate_open_is_contiguous_from_loop_start ... ok
+test arm_off_monitor_auto_creates_no_writer ... ok
+test mono_binding_capture_and_probe_match_channel_agnostic_contract ... ok
+test punch_in_loop_capture_spans_repeat_project_mapping_per_pass ... ok
+test loop_gate_capture_spans_repeat_project_mapping_per_pass ... ok
+test raw_capture_spans_identical_across_monitor_states_with_punch ... ok
+test raw_capture_bytes_are_identical_across_monitor_states ... ok
+test punch_in_loop_gate_across_tempo_boundary_keeps_project_mapping ... ok
+test monitor_does_not_double_correct_placement_across_tempo_boundary ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\monitor_punch_session.rs (target\debug\deps\monitor_punch_session-ac564e71a656f8bf.exe)
+
+running 4 tests
+test session_faults_do_not_leak_between_monitoring_sessions ... ok
+test session_punch_device_loss_fail_stop_and_new_session_recovery ... ok
+test session_device_faults_do_not_depend_on_monitor_state ... ok
+test session_monitor_routes_track_gate_and_raw_stays_gated ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\project_adapter.rs (target\debug\deps\project_adapter-72f05a126941b944.exe)
+
+running 13 tests
+test rcd02pa_composite_probe_semantics ... ok
+test rcd02pa_probe_blocks_open_state_in_history ... ok
+test rcd02pa_probe_clear_allows_discard ... ok
+test rcd02pa_probe_open_session_blocks_discard ... ok
+test rcd02pa_probe_unknown_head_states_fail_closed ... ok
+test rcd02pa_recovery_adopt_records_verified_prefix_sha256 ... ok
+test rcd02pa_finalize_records_verified_prefix_sha256 ... ok
+test rcd02pa_probe_blocks_via_undo_redo_history ... ok
+test rcd02pa_probe_blocks_via_saved_head ... ok
+test rcd02pa_probe_blocks_committed_media_in_live ... ok
+test rcd02pa_commit_manifest_carries_verified_sha256 ... ok
+test rcd02pa_head_revision_and_commit_receipt_saved ... ok
+test rcd02pa_commit_save_reload_undo_restore_ids ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests\rcd01_oracle.rs (target\debug\deps\rcd01_oracle-aafb52ea6b6eeab1.exe)
+
+running 7 tests
+test oracle_sample_golden_consts ... ok
+test oracle_stereo_identity_commit_reload ... ok
+test oracle_multichannel_identity_commit_reload ... ok
+test oracle_input_discontinuity_verified_prefix ... ok
+test oracle_missing_finalized_mixed_session ... ok
+test oracle_two_devices_same_clock_commit_reload ... ok
+test oracle_stereo_device_two_mono_taps_commit_reload ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests\rcd_04_recovery_partial.rs (target\debug\deps\rcd_04_recovery_partial-a31f13b5a908d196.exe)
+
+running 4 tests
+test rcd04_corrupt_journal_is_fail_closed ... ok
+test rcd04_partial_discard_requires_clear_probe ... ok
+test rcd04_group_commit_separates_partial_and_held_streams ... ok
+test rcd04_partial_hold_cancel_then_adopt_retry ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\rcd_04_take_comp_pcm.rs (target\debug\deps\rcd_04_take_comp_pcm-144e0ce999cfde5d.exe)
+
+running 1 test
+test rcd04_comp_pcm_rt_vs_offline_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests\real_input.rs (target\debug\deps\real_input-5305931da013e9d4.exe)
+
+running 5 tests
+test negotiate_prefers_f32_default_format ... ok
+test real_input_config_uses_default_buffer_size ... ok
+test select_f32_prefers_stereo_then_48k ... ok
+test select_f32_rejects_unusable_ranges ... ok
+test negotiated_config_drives_adapter_end_to_end ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\recording.rs (target\debug\deps\recording-b63bb57e61241296.exe)
+
+running 4 tests
+test registration_rejected_before_open ... ok
+test session_state_machine_legal_path_only ... ok
+test full_reference_integrity_is_validated ... ok
+test recording_ids_survive_save_reload ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\recovery_review.rs (target\debug\deps\recovery_review-55c97fc62d5602ed.exe)
+
+running 16 tests
+test rcd02_checkpoint_evidence_records_each_stage ... ok
+test rcd02_evidence_dir_sync_unsupported_is_honest ... ok
+test rcd02_review_record_unreadable_is_fail_closed ... ok
+test rcd02_review_discard_fail_closed_and_idempotent ... ok
+test rcd02_fault_matrix_journal_short_write_torn_append ... ok
+test rcd02_fault_matrix_journal_torn_tail_review_adopt ... ok
+test rcd02_review_hold_persists_without_touching_files ... ok
+test rcd02_unsynced_loss_truncates_to_sync_frontier ... ok
+test rcd02_publish_indeterminate_adopt_recovers ... ok
+test rcd02_finalize_record_complete_with_tail_downgrades_to_partial ... ok
+test rcd02_review_adopt_verified_prefix_and_idempotent ... ok
+test rcd02_fault_matrix_write_sync_permission_diskfull ... ok
+test rcd02_commit_receipt_adopted_partial_finalize_record_absent ... ok
+test rcd02_unsynced_loss_asymmetric_tail ... ok
+test rcd02_commit_receipt_finalize_publish_lost_is_distinct ... ok
+test rcd02_commit_receipt_lifecycle_and_reconcile ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests\rf628_oracle.rs (target\debug\deps\rf628_oracle-a5ac7a599a9e80c4.exe)
+
+running 11 tests
+test rf628_open_fault_rejected_then_recovers ... ok
+test rf628_clock_domain_mismatch_rejected ... ok
+test rf628_device_vanish_fails_stop ... ok
+test rf628_clock_discontinuity_error_fault ... ok
+test rf628_pcm_gap_verified_prefix ... ok
+test rf628_frame_position_fault_verified_prefix ... ok
+test rf628_stereo_scenario_commit_reload ... ok
+test rf628_open_fault_recovery_commit_reload ... ok
+test rf628_two_devices_same_clock_commit_reload ... ok
+test rf628_stereo_device_two_mono_taps_commit_reload ... ok
+test rf628_multichannel_two_mono_taps_commit_reload ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests\rf628_oracle_rt_alloc.rs (target\debug\deps\rf628_oracle_rt_alloc-ab5889647dd1f1f5.exe)
+
+running 1 test
+test rt_scripted_input_callback_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\staged_publish.rs (target\debug\deps\staged_publish-4be76839a3480337.exe)
+
+running 7 tests
+test publish_atomic_reports_stage_failure_without_destination ... ok
+test publish_faultable_denied_touches_nothing ... ok
+test publish_faultable_sync_fail_leaves_destination_unpublished ... ok
+test publish_atomic_create_new_refuses_existing ... ok
+test publish_atomic_replace_overwrites_existing ... ok
+test publish_faultable_call_counter_only_counts_faultable_calls ... ok
+test publish_faultable_indeterminate_publishes_but_reports_error ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\tim_02_midi_phrase.rs (target\debug\deps\tim_02_midi_phrase-976d04c0da8709b1.exe)
+
+running 2 tests
+test smf_import_feeds_phrase_plan_with_zero_hanging_notes ... ok
+test smf_import_then_export_reimport_roundtrips_through_project ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\virtual_endpoint.rs (target\debug\deps\virtual_endpoint-fc2c6cf40f39a53a.exe)
+
+running 6 tests
+test pair_selection_distinguishes_not_provisioned_from_candidates ... ok
+test metadata_output_dir_prefers_run_metadata_dir ... ok
+test ruviform_stem_matches_only_ruviform_virtual_endpoints ... ok
+test ruviform_stem_rejects_other_virtual_and_physical_names ... ok
+test endpoint_metadata_round_trips_case_schema_vocabulary ... ok
+test run_metadata_file_writes_one_machine_readable_json ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\vs_b.rs (target\debug\deps\vs_b-081190f8e0ded02a.exe)
+
+running 15 tests
+test spsc_endpoints_are_single_owner_pairs ... ok
+test input_gap_latches_discontinuity ... ok
+test underrun_when_schedule_not_extended ... ok
+test input_duplicate_latches_discontinuity ... ok
+test queue_full_failstop_and_chunk_retained ... ok
+test free_pool_exhaustion_failstop ... ok
+test epoch_discontinuity_latches_and_no_fabrication ... ok
+test span_capacity_overflow_failstop ... ok
+test punch_in_at_frame_113_of_257_block ... ok
+test negative_preroll_maps_to_positive_session ... ok
+test normal_recording_exact_pcm_and_tiling ... ok
+test tempo_boundary_splits_span_and_block ... ok
+test punch_in_loop_captures_only_punch_region ... ok
+test loop_partial_final_pass_is_capped ... ok
+test three_loop_passes_and_wrap ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests\vs_b_rt_alloc.rs (target\debug\deps\vs_b_rt_alloc-744e05d2fd7c03ee.exe)
+
+running 1 test
+test rt_path_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\vs_c.rs (target\debug\deps\vs_c-47203290f0cfcf68.exe)
+
+running 16 tests
+test vsc_partial_write_stream_failed ... ok
+test vsc_contract_violation_source_gap ... ok
+test vsc_sync_failed_distinct_from_write ... ok
+test vsc_unverified_tail_never_finalized ... ok
+test vsc_disk_full_byte_limit ... ok
+test vsc_staging_layout_manifest ... ok
+test vsc_writer_stall_queue_full_then_drain ... ok
+test vsc_journal_torn_tail_and_checksum_and_gap ... ok
+test vsc_recover_last_checkpoint ... ok
+test vsc_failed_chunk_preserves_validated_prefix ... ok
+test vsc_failed_journal_append_preserves_prefix ... ok
+test vsc_finalize_idempotent ... ok
+test vsc_multi_stream_fault_isolation ... ok
+test vsc_punch_loop_spans_match ... ok
+test vsc_normal_stereo_pcm_bit_exact ... ok
+test vsc_multi_stream_all_ranges ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\vs_d.rs (target\debug\deps\vs_d-adf639f2d733f892.exe)
+
+running 22 tests
+test vs_d_commit_path_non_rt ... ok
+test vs_d_crash_before_commit_retry ... ok
+test vs_d_commit_after_finalize_session_op ... ok
+test vs_d_revision_conflict_recoverable ... ok
+test vs_d_recommit_after_undo_recovers ... ok
+test vs_d_retry_after_staging_drift_is_already_applied ... ok
+test vs_d_integrity_conflict_same_identity ... ok
+test vs_d_epoch_discontinuity_not_committed ... ok
+test vs_d_normal_commit_verified ... ok
+test vs_d_crash_after_commit_retry_no_dup ... ok
+test vs_d_save_reload_integrity ... ok
+test vs_d_stale_manifest_rebuild_after_lane_change ... ok
+test vs_d_journal_truncation_recovery ... ok
+test vs_d_validate_rejects_negative_ranges ... ok
+test vs_d_validate_rejects_intra_manifest_dup_pass_index ... ok
+test vs_d_undo_redo_restores_ids ... ok
+test vs_d_queue_overflow_not_committed ... ok
+test vs_d_writer_error_recoverable ... ok
+test vs_d_punch_placement_exact ... ok
+test vs_d_two_track_two_ch_clock ... ok
+test vs_d_punch_in_loop_segments ... ok
+mbx[progress]: 30s elapsed; 0 hits, 1 misses, 0 bypassed, 21 not looked up; ~0s compiler work saved
+test vs_d_loop_three_passes ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+
+   Doc-tests synvelis_recording
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+mbx[cache]: 0 hits, 1 misses, 21 not looked up, 21 incremental, 1 bypassed; 0 B downloaded, 0 B uploaded, 76.1 MiB stored locally
+mbx[savings]: 19.3 TiB logical of old files removed to date. the broom sends its regards.
+end_utc=2026-11-28T13:02:45Z
+exit_code=0
+shell_elapsed_seconds=33
+---
+$ mise run fmt-check
+start_utc=2026-11-28T13:02:46Z
+[fmt-check] $ cargo fmt --all -- --check
+ファイル名または拡張子が長すぎます。 (os error 206)
+This utility formats all bin and lib files of the current crate using rustfmt.
+
+Usage: cargo fmt [OPTIONS] [-- <rustfmt_options>...]
+
+Arguments:
+  [rustfmt_options]...  Options passed to rustfmt
+
+Options:
+  -q, --quiet
+          No output printed to stdout
+  -v, --verbose
+          Use verbose output
+      --version
+          Print rustfmt version and exit
+  -p, --package <package>...
+          Specify package to format
+      --manifest-path <manifest-path>
+          Specify path to Cargo.toml
+      --message-format <message-format>
+          Specify message-format: short|human
+      --all
+          Format all packages, and also their local path-based dependencies
+      --check
+          Run rustfmt in check mode
+  -h, --help
+          Print help
+
+[fmt-check] ERROR task failed
+end_utc=2026-11-28T13:02:49Z
+exit_code=1
+shell_elapsed_seconds=3
+---
+$ mise exec -- cargo fmt -p synvelis-recording -- --check (auxiliary evidence — canonical = mise run fmt-check)
+start_utc=2026-11-28T13:03:05Z
+end_utc=2026-11-28T13:03:07Z
+exit_code=0
+shell_elapsed_seconds=2

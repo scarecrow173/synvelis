@@ -1,0 +1,12 @@
+$ auxiliary GOTO symbol extraction (canonical proof command remains mise run test-formal-kani)
+artifact=cfg-only
+total_entries 4696
+proptest 0
+fmt 738
+format 39
+std::fmt::format 6
+core::fmt 39
+std::fmt 74
+require_transition 22
+std::string::String 14
+alloc 1109

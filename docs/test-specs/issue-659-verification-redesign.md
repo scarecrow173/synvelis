@@ -159,3 +159,27 @@ slice 3 は baseline、低コスト selective proof 3 件、mutation 5 件、非
 ## slice 3 結果の正本
 
 selective proof invocation は `evidence/sv659/formal-proof-runs.jsonl`、mutation は `evidence/sv659/mutation-runs.jsonl`、cost 集約は `evidence/sv659/cost-mutation-matrix.json`、raw output は同じディレクトリの `slice3-*.txt` を正本とする。人間向けの完全な記録は `evidence/sv659/verification.md` に記録する。
+
+## slice 4 session proof boundary の検証 matrix
+
+slice 4 は K-RJ-04 `session_transitions_exhaustive` だけを対象に、solver cost の支配因切り分け、boundary 再設計、selective proof 実走、非回帰レーンを行った。Authorization、Recovery ordering、heavy replay/round-trip proof、full lane は対象外である。
+
+| ID | 対象 | 方法 | Expected | 結果 |
+| --- | --- | --- | --- | --- |
+| SV659-S4-D1 | proptest-only boundary | proptest-only strategy/test を `cfg(not(kani))` から外し、selective proof を実行 | 通常 Property lane を失わず、boundary だけで Pass しなければ solver 支配因と断定しない | boundary だけでは NotRun。`mise run test-formal` は 50/50 Pass、proof は runner elapsed 336.099s・exit 15 で外部停止 |
+| SV659-S4-D2 | solver input の切り分け | GOTO pretty-name map の補助抽出 | proptest-only code と illegal-transition error construction の有無を evidence 化する | cfg-only map は proptest 0・fmt 738・format 39・alloc 1109。再設計後は total 1603・fmt 42・format 0・alloc 618。補助証拠であり canonical = mise |
+| SV659-S4-K4 | K-RJ-04 selective proof | `KANI_PACKAGE=synvelis-recording KANI_HARNESS=session_transitions_exhaustive KANI_JOBS=1 mise run test-formal-kani` | 4×4・3 forward edge・acceptance gate oracle を弱めず `VERIFICATION:- SUCCESSFUL` | Pass。0/269 failed（4 unreachable）、Verification Time 5.1956944s、runner 30.248s、shell 32s、harnesses_matched=1 |
+| SV659-S4-O1 | oracle 非弱化 | diff と test/proof の確認 | 全 16 pair、`legal_transition`/`require_transition` 一致、3 edge、acceptance gate、製品実装呼出しを維持する | Pass。harness 名・4×4・acceptance gate・unwind(8)・製品実装呼出しを維持。error text は proptest で `format!("{from:?} -> {to:?}")` と一致確認 |
+| SV659-S4-N1 | 非回帰レーン | `mise run test-formal`、`mise run check synvelis-recording`、`mise run lint synvelis-recording`、`mise run test synvelis-recording` | exit 0 | すべて Pass。exit 0 |
+| SV659-S4-N2 | fmt lane | `mise run fmt-check` | exit 0 | Fail（環境/工具制約）。Windows 長パスで `os error 206`。補助 `mise exec -- cargo fmt -p synvelis-recording -- --check` は exit 0 |
+
+## slice 4 oracle detail
+
+- K-RJ-04 の Pass は `SessionState` 4×4 pair と acceptance gate の有限全域だけを示す。recording workflow、crash recovery、永続化 ordering、製品全体の証明ではない。
+- `require_transition` の公開契約は変えていない。illegal pair の error payload は従来どおり `"{from:?} -> {to:?}"` の文字列であり、生成方法を finite static lookup に変えただけである。proptest はこの文字列一致を直接検査する。
+- proptest-only code を `cfg(not(kani))` で外すのは test-only の codegen boundary である。通常 lane の 15 件の recording Property/Example Test は残り、最終 `mise run test-formal` は gateway 35/35・recording 15/15 で Pass した。
+- peak memory は runner が RSS を計測しないため unmeasured とする。full cause classifier も未実装であり、cause class は raw output、GOTO symbol map、実行観測から evidence 側で記録する。
+
+## slice 4 結果の正本
+
+selective proof invocation は `evidence/sv659/formal-proof-runs.jsonl`、raw output は `evidence/sv659/slice4-krj04-session-transitions-exhaustive.txt`、cfg-only 対照は `evidence/sv659/slice4-krj04-cfg-only-experiment.txt`、GOTO symbol 補助抽出は `evidence/sv659/slice4-krj04-goto-symbols-cfg-only.txt` / `evidence/sv659/slice4-krj04-goto-symbols-redesigned.txt` とする。人間向けの完全な記録は `evidence/sv659/verification.md` に記録する。
